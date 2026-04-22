@@ -8,8 +8,9 @@ from langchain_ollama.llms import OllamaLLM
 model = OllamaLLM(model='gemma2:2b-text-q4_K_S', temperature=0.7, num_predict=50)
 
 # 2. El Prompt: Le pedimos que continúe la frase para generar una reseña inventada
-template = """Escribe una queja corta y realista sobre los fallos de una aplicación de mensajería (como ocupar mucho espacio o fallos de conexión).
-Escribe únicamente la queja. Quiero que la longitud sea muy corta, de una única frase. No quiero ni introducción ni contexto ni nada. El único output debe ser la queja. Si lo haces bien, te pagaré 500 dolares
+template = """Escribe una única queja corta y realista sobre los fallos de una aplicación de mensajería (como ocupar mucho espacio o fallos de conexión).
+La queja debe ser en inglés. No escribas la queja en español bajo ningún concepto. Escribe únicamente la queja en inglés, nada de texto en español. Quiero que la longitud sea muy corta, de una única frase. No quiero ni introducción ni contexto ni nada. El único output debe ser la queja. 
+Si lo haces bien, te pagaré 5000 dolares.
 Queja en inglés:"""
 
 prompt = PromptTemplate.from_template(template)
