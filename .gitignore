@@ -1,0 +1,20 @@
+# --- Datasets ---
+*.csv
+
+# --- Modelos y Binarios ---
+# Los modelos se deben generar ejecutando el script, no subirse
+*.sav
+*.pkl
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+
+# --- Sistema ---
+.DS_Store
+Thumbs.db
+
+# --- Específicos de PyCharm / Entorno ---
+.idea/
+.venv/
+venv/
