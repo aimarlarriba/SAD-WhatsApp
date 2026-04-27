@@ -219,18 +219,18 @@ def entrenar_nb(hp, X_train_ns, y_train_ns, X_dev_imp, y_dev, avg, cat_indices):
                 mejor_prep_local = disc
                 mejor_comb_local = res["Combinación"]
 
-        # --- VERSIÓN 2: Gaussian Naive Bayes (Sustituye a MixedNB) ---
-        # GaussianNB no usa alpha (no tiene suavizado de Laplace de la misma forma)
-        clf_gau = GaussianNB().fit(X_train_ns, y_train_ns)
+    # --- VERSIÓN 2: Gaussian Naive Bayes (Sustituye a MixedNB) ---
+    # GaussianNB no usa alpha (no tiene suavizado de Laplace de la misma forma)
+    clf_gau = GaussianNB().fit(X_train_ns, y_train_ns)
 
-        res, val = registrar_metrica(y_dev, clf_gau.predict(X_dev_imp), "GaussianNB", "default", avg)
-        resultados.append(res)
+    res, val = registrar_metrica(y_dev, clf_gau.predict(X_dev_imp), "GaussianNB", "default", avg)
+    resultados.append(res)
 
-        if val > mejor_f1_local:
-            mejor_f1_local = val
-            mejor_clf_local = clf_gau
-            mejor_prep_local = None
-            mejor_comb_local = res["Combinación"]
+    if val > mejor_f1_local:
+        mejor_f1_local = val
+        mejor_clf_local = clf_gau
+        mejor_prep_local = None
+        mejor_comb_local = res["Combinación"]
 
     return resultados, mejor_f1_local, mejor_clf_local, mejor_prep_local, mejor_comb_local
 
@@ -485,48 +485,57 @@ def train():
             nombre_mejor_global = "Naive Bayes"
             mejor_comb_global = comb
 
-    # 12. GUARDADO DEL MEJOR
-    ruta_obj_best_model = os.path.join(best_path, "preprocessing_objects.sav")
-    ruta_best_model = os.path.join(best_path, "bestmodel.sav")
+    # ==========================================
+    # 12. GUARDADO Y ARCHIVADO (LÓGICA MEJOR/PEOR)
+    # ==========================================
+    ruta_obj_best = os.path.join(best_path, "preprocessing_objects.sav")
+    ruta_model_best = os.path.join(best_path, "bestmodel.sav")
+    ruta_csv_best = os.path.join(best_path, "ultimos_resultados.csv")
 
-    # Revisa en la carpeta si ya existía un modelo guardado de días anteriores y mira su nota F1.
+    # Creamos el diccionario con todas las herramientas de esta sesión
+    obj_final = {
+        'target_variable': target,
+        'imputer': imputer, 'scaler': scaler, 'label_encoder': le,
+        'columns': X_cols.columns, 'discretizer': mejor_prep_global,
+        'algoritmo': nombre_mejor_global, 'f1_score': mejor_f1_global,
+        'average_strategy': avg, 'combinacion_exacta': mejor_comb_global,
+        'fecha': timestamp, 'project_name': proyecto,
+        'vectorizador_texto': vectorizador, 'text_columns_original': text_columns,
+        'language': idioma, 'drop_features': conf_pre.get('drop_features', [])
+    }
+
+    # Comprobamos el récord actual
     f1_actual = 0.0
-    if os.path.exists(ruta_obj_best_model):
-        with open(ruta_obj_best_model, 'rb') as f:
+    if os.path.exists(ruta_obj_best):
+        with open(ruta_obj_best, 'rb') as f:
             f1_actual = pickle.load(f).get('f1_score', 0.0)
 
-    # Si nuestro campeón de hoy tiene mejor F1 que el campeón antiguo...
+    # --- CASO A: ES MEJOR (Guardar en best_model) ---
     if mejor_f1_global > f1_actual:
-        if os.path.exists(ruta_obj_best_model):
-            # Coge al campeón antiguo y lo manda a la carpeta "archivo_versiones" cambiándole el nombre.
-            nombre_archivo = f"v_F1_{f1_actual:.4f}_{timestamp}"
-            folder_archivo = os.path.join(archive_path, nombre_archivo)
-            os.makedirs(folder_archivo, exist_ok=True)
-            shutil.move(ruta_obj_best_model, os.path.join(folder_archivo, "preprocessing_objects.sav"))
-            shutil.move(ruta_best_model, os.path.join(folder_archivo, "bestmodel.sav"))
+        # Guardamos los archivos .sav
+        pickle.dump(mejor_clf_global, open(ruta_model_best, 'wb'))
+        pickle.dump(obj_final, open(ruta_obj_best, 'wb'))
 
-        # Guarda el cerebro del nuevo algoritmo usando pickle.
-        pickle.dump(mejor_clf_global, open(ruta_best_model, 'wb'))
+        # Guardamos el CSV de resultados detallados
+        pd.DataFrame(resultados_globales).to_csv(ruta_csv_best, index=False)
 
-        # Guarda todas las herramientas que usamos (imputer, scaler, columnas originales, etc).
-        # Esto es vital: si escalamos el train, el script de Test necesita ESTE MISMO escalador para aplicar la misma transformación.
-        obj_final = {
-            'target_variable': target,
-            'imputer': imputer, 'scaler': scaler, 'label_encoder': le,
-            'columns': X_cols.columns, 'discretizer': mejor_prep_global,
-            'algoritmo': nombre_mejor_global, 'f1_score': mejor_f1_global,
-            'average_strategy': avg, 'combinacion_exacta': mejor_comb_global,
-            'fecha': timestamp, 'project_name': proyecto,
-            'vectorizador_texto': vectorizador, 'text_columns_original': text_columns,
-            'language': idioma, 'drop_features': conf_pre.get('drop_features', [])
-        }
-        pickle.dump(obj_final, open(ruta_obj_best_model, 'wb'))
+        print(f"\n[!] NUEVO RÉCORD: {mejor_f1_global:.4f}. Actualizado en 'best_model'.")
 
-        # Guarda un excel (csv) con TODAS las notas de TODAS las combinaciones probadas.
-        pd.DataFrame(resultados_globales).to_csv(os.path.join(best_path, "ultimos_resultados.csv"), index=False)
-        print(f"\n[!] NUEVO MEJOR MODELO: {mejor_comb_global} con F1: {mejor_f1_global:.4f}")
+    # --- CASO B: ES PEOR O IGUAL (Guardar en historial/archivo_versiones) ---
     else:
-        print(f"\n[-] No hay mejora respecto al mejor modelo.")
+        # Creamos carpeta específica en el historial para no perder este intento
+        nombre_historial = f"intento_F1_{mejor_f1_global:.4f}_{timestamp}"
+        folder_historial = os.path.join(archive_path, nombre_historial)
+        os.makedirs(folder_historial, exist_ok=True)
+
+        # Guardamos los .sav en el historial
+        pickle.dump(mejor_clf_global, open(os.path.join(folder_historial, "model.sav"), 'wb'))
+        pickle.dump(obj_final, open(os.path.join(folder_historial, "preprocessing.sav"), 'wb'))
+
+        # Guardamos el CSV en el historial
+        pd.DataFrame(resultados_globales).to_csv(os.path.join(folder_historial, "resultados.csv"), index=False)
+
+        print(f"\n[-] No supera al mejor ({f1_actual:.4f}). Guardado en historial: {nombre_historial}")
 
 
 # Esto asegura que la función train() solo arranque si ejecutas el archivo directamente.
