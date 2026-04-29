@@ -10,6 +10,7 @@ import os
 import emoji
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
+from nltk import WordNetLemmatizer
 import shutil
 from datetime import datetime
 from imblearn.under_sampling import RandomUnderSampler  # Herramienta para balancear los datos si hay muchas más filas de una clase que de otra (recorta la clase mayoritaria).
@@ -31,7 +32,9 @@ except LookupError:
     nltk.download('stopwords')
     nltk.download('punkt')
     nltk.download('punkt_tab')
-from nltk.corpus import stopwords
+    nltk.download('averaged_perceptron_tagger_eng')
+    nltk.download('wordnet')
+from nltk.corpus import stopwords, wordnet
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 
@@ -65,7 +68,21 @@ def registrar_metrica(y_true, y_pred, nom, pars, avg):
 # ---------------------------------------------------------
 # FUNCION PARA PROCESAMIENTO DE TEXTO
 # ---------------------------------------------------------
-def limpiar_texto_libre(texto, idioma, negation_words=None, stopwords_domain=None):
+def get_wordnet_pos(word):
+    """Mapea etiquetas POS de NLTK a formatos compatibles con WordNetLemmatizer"""
+    tag = nltk.pos_tag([word])[0][1][0].upper()
+    tag_dict = {"J": wordnet.ADJ,
+                "N": wordnet.NOUN,
+                "V": wordnet.VERB,
+                "R": wordnet.ADV}
+
+    return tag_dict.get(tag, wordnet.NOUN) # Por defecto sustantivo
+
+
+lemmatizer = WordNetLemmatizer()
+stemmer = PorterStemmer()
+
+def limpiar_texto_libre(texto, idioma, processing_type, negation_words=None, stopwords_domain=None):
     texto = str(texto)
     texto = emoji.demojize(texto, language='en').replace(':', ' ')
     texto = str(texto).lower()
@@ -84,9 +101,11 @@ def limpiar_texto_libre(texto, idioma, negation_words=None, stopwords_domain=Non
     if stopwords_domain:
         stop_words = stop_words.union(set(stopwords_domain))
 
-    stemmer = PorterStemmer()
     tokens = word_tokenize(texto)
-    tokens = [stemmer.stem(t) for t in tokens if t not in stop_words]
+    if processing_type == "lemmatize":
+        tokens = [lemmatizer.lemmatize(t, get_wordnet_pos(t)) for t in tokens if t not in stop_words]
+    elif processing_type == "stem":
+        tokens = [stemmer.stem(t) for t in tokens]
 
     return " ".join(tokens)
 
@@ -410,14 +429,16 @@ def train():
         # Obtener idioma del JSON (por defecto 'english')
         idioma = text_cfg.get('language', 'spanish')
 
+        processing_type = text_cfg.get('processing_type', 'lemmatize')
+
         # Leer las listas del JSON (si no existen, devuelve lista vacía)
         p_neg = text_cfg.get('negation_words', [])
         s_dom = text_cfg.get('stopwords_domain', [])
 
         for col in text_columns:
             # PASO 1: Limpiar el texto (minúsculas, stopwords, stemmer)
-            X_train_raw[col] = X_train_raw[col].apply(lambda x: limpiar_texto_libre(x, idioma, p_neg, s_dom))
-            X_dev_raw[col] = X_dev_raw[col].apply(lambda x: limpiar_texto_libre(x, idioma, p_neg, s_dom))
+            X_train_raw[col] = X_train_raw[col].apply(lambda x: limpiar_texto_libre(x, idioma, processing_type, p_neg, s_dom))
+            X_dev_raw[col] = X_dev_raw[col].apply(lambda x: limpiar_texto_libre(x, idioma, processing_type, p_neg, s_dom))
 
         # PASO 2: Unir las columnas de texto limpias en una sola cadena para vectorizar
         train_text = X_train_raw[text_columns].apply(lambda x: ' '.join(x), axis=1)
@@ -426,9 +447,9 @@ def train():
         # Vectorizar: FIT solo en TRAIN
         rango_ngramas = tuple(text_cfg.get('ngram_range', [1, 2]))
         if text_cfg.get('method') == "bow":
-            vectorizador = CountVectorizer(ngram_range=rango_ngramas, max_df=0.90, min_df=3)
+            vectorizador = CountVectorizer(ngram_range=rango_ngramas, max_df=0.90, min_df=5)
         else:
-            vectorizador = TfidfVectorizer(ngram_range=rango_ngramas, max_df=0.90, min_df=3)
+            vectorizador = TfidfVectorizer(ngram_range=rango_ngramas, max_df=0.90, min_df=5)
 
         X_train_vec = vectorizador.fit_transform(train_text)
         X_dev_vec = vectorizador.transform(dev_text)
@@ -597,7 +618,8 @@ def train():
     pickle.dump(mejor_clf_global, open(os.path.join(folder_historial, "model.sav"), 'wb'))
     pickle.dump(obj_final, open(os.path.join(folder_historial, "preprocessing.sav"), 'wb'))
     pd.DataFrame(resultados_globales).to_csv(os.path.join(folder_historial, "resultados.csv"), index=False)
-    shutil.copy2(f_conf, os.path.join(folder_historial, "configuracion_usada.json"))
+    with open(os.path.join(folder_historial, "configuracion_usada.json"), 'w') as f_out:
+        json.dump(config, f_out, indent=4)
 
     # Guardar el test usado en este intento específico
     if split_pct > 0:
@@ -622,6 +644,9 @@ def train():
             os.makedirs(backup_folder, exist_ok=True)
             shutil.move(ruta_model_best, os.path.join(backup_folder, "model.sav"))
             shutil.move(ruta_obj_best, os.path.join(backup_folder, "preprocessing.sav"))
+
+        with open(os.path.join(best_path, "configuracion_usada.json"), 'w') as f_out:
+            json.dump(config, f_out, indent=4)
 
         # Guardamos el nuevo récord en la carpeta principal
         pickle.dump(mejor_clf_global, open(ruta_model_best, 'wb'))

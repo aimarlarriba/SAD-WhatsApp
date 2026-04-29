@@ -39,31 +39,29 @@ def limpiar_texto_libre(texto, idioma, negation_words=None, stopwords_domain=Non
 
 def test():
     # 1. COMPROBAR TERMINAL
-    # Necesitamos el comando de python, el nombre del csv y el nombre del proyecto.
     if len(sys.argv) < 3:
-        print("\n[!] Uso: python test.py <ruta_o_nombre_csv> <nombre_proyecto>")
+        print("\n[!] Uso: python test.py <nombre_proyecto> <nombre_carpeta_modelo> [archivo_custom.csv]")
         sys.exit(1)
 
-    input_csv, proyecto = sys.argv[1], sys.argv[2]
+    # Invertimos el orden para que lo primero sea el proyecto
+    proyecto = sys.argv[1]
+    carpeta_modelo = sys.argv[2]
 
-    # 2. LOCALIZAR CARPETAS
-    # Entra en la carpeta /proyectos/ y luego en la carpeta de nuestro proyecto en concreto.
+    # Si hay un tercer argumento, es un CSV nuevo. Si no, busca el 'test.csv' de la carpeta del modelo.
     base_path = os.path.join("proyectos", proyecto)
     data_path = os.path.join(base_path, "datos")
-    best_model_path = os.path.join(base_path, "best_model")
+    model_path = os.path.join(base_path, carpeta_modelo)
+    if not os.path.exists(model_path):
+        model_path = os.path.join(base_path, "archivo_versiones", carpeta_modelo)
 
-    # Si el archivo no existe en la ruta actual, lo busca en la carpeta 'datos' del proyecto
+    if len(sys.argv) > 3:
+        input_csv = sys.argv[3]
+    else:
+        # Intenta cargar el archivo de test que el train guardó automáticamente en esa carpeta
+        input_csv = os.path.join(model_path, "test.csv")
+
     if not os.path.exists(input_csv):
-        posible_ruta = os.path.join(data_path, input_csv)
-        if os.path.exists(posible_ruta):
-            input_csv = posible_ruta
-        else:
-            print(f"[ERROR] No se encuentra el archivo de entrada: {input_csv}")
-            sys.exit(1)
-
-    # Chequea que el proyecto existió y se entrenó (debe haber una carpeta 'best_model').
-    if not os.path.exists(best_model_path):
-        print(f"[ERROR] No existe el proyecto '{proyecto}' o no tiene modelos en 'best_model'.")
+        print(f"[ERROR] No se encuentra el archivo de datos: {input_csv}")
         sys.exit(1)
 
     # 3. ORGANIZAR DATOS
@@ -79,18 +77,22 @@ def test():
 
     # 4. CARGAR HERRAMIENTAS Y MODELO (Deserializar)
     try:
-        # Abrimos (en modo 'rb' -> read binary) los archivos .sav y recuperamos los objetos.
-        pre_obj = pickle.load(open(os.path.join(best_model_path, "preprocessing_objects.sav"), 'rb'))
-        clf = pickle.load(open(os.path.join(best_model_path, "bestmodel.sav"), 'rb'))
-        target_col = pre_obj['target_variable']
-        vectorizador = pre_obj.get('vectorizador_texto')
-        text_columns = pre_obj.get('text_columns_original', [])
-    except FileNotFoundError:
-        print("[ERROR] Faltan archivos .sav en la carpeta del modelo.")
+        # Intentar nombres de la carpeta 'best_model'
+        if os.path.exists(os.path.join(model_path, "bestmodel.sav")):
+            pre_obj = pickle.load(open(os.path.join(model_path, "preprocessing_objects.sav"), 'rb'))
+            clf = pickle.load(open(os.path.join(model_path, "bestmodel.sav"), 'rb'))
+        # Intentar nombres de la carpeta 'archivo_versiones'
+        else:
+            pre_obj = pickle.load(open(os.path.join(model_path, "preprocessing.sav"), 'rb'))
+            clf = pickle.load(open(os.path.join(model_path, "model.sav"), 'rb'))
+    except Exception as e:
+        print(f"[ERROR] No se pudieron cargar los archivos .sav en {model_path}: {e}")
         sys.exit(1)
 
     # 5. PREPROCESADO IGUAL QUE EN EL TRAIN
-    df = pd.read_csv(ruta_final_datos)  # Leemos los datos nuevos
+    df = pd.read_csv(ruta_final_datos)
+    vectorizador = pre_obj.get('vectorizador_texto')
+    text_columns = pre_obj.get('text_columns_original', [])
 
     # Si hay un vectorizador guardado, procesamos el texto automáticamente
     if vectorizador is not None and len(text_columns) > 0:
@@ -178,7 +180,7 @@ def test():
 
     # 8. GUARDAR LAS PREDICCIONES
     # Creamos carpeta si no existe
-    preds_dir = os.path.join(best_model_path, "predicciones_generadas")
+    preds_dir = os.path.join(model_path, "predicciones_generadas")
     os.makedirs(preds_dir, exist_ok=True)
 
     # Formateamos el nombre del archivo para que incluya qué modelo es y qué nota sacó en train.
