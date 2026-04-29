@@ -3,7 +3,6 @@ from langchain_core.prompts import PromptTemplate
 from langchain_ollama.llms import OllamaLLM
 import sys
 
-
 def main():
     tipo_de_resena = sys.argv[1].lower()
     cantidad_a_generar = sys.argv[2]

@@ -4,7 +4,6 @@ from langchain_core.prompts import PromptTemplate
 from langchain_ollama.llms import OllamaLLM
 
 parser = argparse.ArgumentParser(description='Clasificacion de Sentimientos con Ollama')
-# Apuntamos a tu modelo exacto
 parser.add_argument('--model', type=str, default='gemma2:2b-text-q4_K_S', help='Nombre del modelo en Ollama')
 args = parser.parse_args()
 
