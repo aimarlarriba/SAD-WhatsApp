@@ -7,7 +7,6 @@ import gensim
 import gensim.corpora as corpora
 from gensim.models import LdaModel
 
-# Descargas necesarias de NLTK
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
 nltk.download('omw-1.4', quiet=True)
@@ -36,7 +35,7 @@ def limpieza_temas(texto):
     tokens = []
     for t in texto.split():
         if t not in stop_words and len(t) > 2:
-            # Lematizamos primero como verbo (ej. working -> work) y luego como sustantivo
+            # Lematizamos primero como verbo y luego como sustantivo
             lema = lemmatizer.lemmatize(t, pos='v')
             lema = lemmatizer.lemmatize(lema, pos='n')
             tokens.append(lema)
@@ -54,7 +53,7 @@ id2word.filter_extremes(no_below=2, no_above=0.9)
 corpus = [id2word.doc2bow(text) for text in df['tokens']]
 
 # Número de tópicos que mejor ha salido en la gráfica del codo
-n_topics = 4
+n_topics = 7
 print(f"[*] Entrenando modelo LDA con {n_topics} tópicos...")
 
 lda_model = LdaModel(corpus=corpus, num_topics=n_topics, id2word=id2word, random_state=42, passes=10)
@@ -70,7 +69,7 @@ for idx, topic in lda_model.print_topics(-1):
     print(info_topico)
     resumen_topicos += info_topico + "\n"
 
-# Guardamos el resumen en un txt para que no lo pierdas
+# Guardamos el resumen en un txt
 with open('resumen_topicos.txt', 'w', encoding='utf-8') as f:
     f.write(resumen_topicos)
 print("\n[OK] Información de los tópicos guardada en 'resumen_topicos.txt'")
