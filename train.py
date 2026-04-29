@@ -10,6 +10,7 @@ import os
 import emoji
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
+import shutil
 from datetime import datetime
 from imblearn.under_sampling import RandomUnderSampler  # Herramienta para balancear los datos si hay muchas más filas de una clase que de otra (recorta la clase mayoritaria).
 from imblearn.over_sampling import SMOTE, ADASYN
@@ -364,9 +365,7 @@ def train():
         # stratify=y_full: asegura que si hay 80% gatos y 20% perros en el archivo original,
         # en el trozo de test haya también 80% gatos y 20% perros.
         df, df_test_auto = train_test_split(df_full, test_size=split_pct, random_state=42, stratify=y_full)
-        # Guarda ese test a un lado para usarlo en el examen con test.py
-        f_test_auto = os.path.join(data_path, f"test_automatico_{proyecto}.csv")
-        df_test_auto.to_csv(f_test_auto, index=False)
+
     else:
         df = df_full  # Si split_pct era 0, usamos todo el archivo para entrenar.
 
@@ -386,9 +385,13 @@ def train():
     clases_suficientes = conteos_clases[conteos_clases >= min_muestras].index
     df_clean = df_clean[df_clean[target].isin(clases_suficientes)].copy()
 
-    # Re-ajustamos el encoder para que las etiquetas sean continuas (0, 1, 2...)
+    # Reajustamos el encoder para que las etiquetas sean continuas (0, 1, 2...)
     le = LabelEncoder()
     y = le.fit_transform(df_clean[target].astype(str))
+
+    # 7. DIVISIÓN TRAIN / DEV (Antes de procesar texto o dummies) ---
+    X_raw = df_clean.drop(columns=[target])
+    X_train_raw, X_dev_raw, y_train, y_dev = train_test_split(X_raw, y, test_size=0.2, random_state=42, stratify=y)
 
     # Actualizamos el promedio por si el número de clases cambió tras filtrar
     num_clases = len(le.classes_)
@@ -413,38 +416,47 @@ def train():
 
         for col in text_columns:
             # PASO 1: Limpiar el texto (minúsculas, stopwords, stemmer)
-            df_clean[col] = df_clean[col].apply(lambda x: limpiar_texto_libre(x, idioma, p_neg, s_dom))
+            X_train_raw[col] = X_train_raw[col].apply(lambda x: limpiar_texto_libre(x, idioma, p_neg, s_dom))
+            X_dev_raw[col] = X_dev_raw[col].apply(lambda x: limpiar_texto_libre(x, idioma, p_neg, s_dom))
 
         # PASO 2: Unir las columnas de texto limpias en una sola cadena para vectorizar
-        texto_unido = df_clean[text_columns].apply(lambda x: ' '.join(x), axis=1)
+        train_text = X_train_raw[text_columns].apply(lambda x: ' '.join(x), axis=1)
+        dev_text = X_dev_raw[text_columns].apply(lambda x: ' '.join(x), axis=1)
 
-        # PASO 3: Elegir el metodo y vectorizar
+        # Vectorizar: FIT solo en TRAIN
         rango_ngramas = tuple(text_cfg.get('ngram_range', [1, 2]))
-
         if text_cfg.get('method') == "bow":
             vectorizador = CountVectorizer(ngram_range=rango_ngramas, max_df=0.90, min_df=3)
         else:
-            vectorizador = TfidfVectorizer(analyzer='word', ngram_range=rango_ngramas, max_df=0.90, min_df=3)
+            vectorizador = TfidfVectorizer(ngram_range=rango_ngramas, max_df=0.90, min_df=3)
 
-        X_text = vectorizador.fit_transform(texto_unido)
-        df_text = pd.DataFrame(X_text.toarray(), columns=vectorizador.get_feature_names_out(), index=df_clean.index)
+        X_train_vec = vectorizador.fit_transform(train_text)
+        X_dev_vec = vectorizador.transform(dev_text)
 
-        # PASO 4: Eliminar columnas originales y concatenar las numéricas
-        df_clean = df_clean.drop(columns=text_columns)
-        df_clean = pd.concat([df_clean, df_text], axis=1)
+        # Convertir a DataFrame
+        X_train_text_df = pd.DataFrame(X_train_vec.toarray(), columns=vectorizador.get_feature_names_out(),
+                                       index=X_train_raw.index)
+        X_dev_text_df = pd.DataFrame(X_dev_vec.toarray(), columns=vectorizador.get_feature_names_out(),
+                                     index=X_dev_raw.index)
 
-    # get_dummies es el One-Hot Encoding: convierte columnas de texto (ej. Color: Rojo, Verde) en varias columnas binarias (Color_Rojo: 1 o 0). drop_first=True evita redundancias matemáticas.
-    X_cols = pd.get_dummies(df_clean.drop(columns=[target]), drop_first=True)
+        # Quitar columnas de texto originales y unir las vectorizadas
+        X_train_raw = pd.concat([X_train_raw.drop(columns=text_columns), X_train_text_df], axis=1)
+        X_dev_raw = pd.concat([X_dev_raw.drop(columns=text_columns), X_dev_text_df], axis=1)
 
-    # Esto borra las columnas que sean todas iguales (si una columna no aporta información, se borra).
-    X_cols = X_cols.loc[:, (X_cols != X_cols.iloc[0]).any()]
+    # Aplicar dummies en Train
+    X_train = pd.get_dummies(X_train_raw, drop_first=True)
+
+    # Aplicar dummies en Dev y sincronizar columnas con Train
+    X_dev = pd.get_dummies(X_dev_raw, drop_first=True)
+    X_dev = X_dev.reindex(columns=X_train.columns, fill_value=0)
+
+    # Eliminar columnas constantes (basado solo en Train)
+    cols_activas = [col for col in X_train.columns if X_train[col].nunique() > 1]
+    X_train = X_train[cols_activas]
+    X_dev = X_dev[cols_activas]
 
     # La 'y' es nuestra columna de soluciones pasada a números
     y = le.transform(df_clean[target].astype(str))
-
-    # 7. DIVISIÓN TRAIN / (DEV)
-    # Partimos los datos: 80% (train) para estudiar y 20% (dev) para hacer simulacros de examen internos
-    X_train, X_dev, y_train, y_dev = train_test_split(X_cols, y, test_size=0.2, random_state=42, stratify=y)
 
     # 8. IMPUTACIÓN (Rellenar huecos vacíos)
     imputer = None
@@ -495,7 +507,7 @@ def train():
     # 11.Llamada a algoritmos
     # Aquí vamos guardando al mejor de entre todos los algoritmos.
     resultados_globales = []
-    mejor_f1_global = -1;
+    mejor_f1_global = -1
     mejor_clf_global = None
     mejor_prep_global = None
     nombre_mejor_global = ""
@@ -562,11 +574,15 @@ def train():
     ruta_model_best = os.path.join(best_path, "bestmodel.sav")
     ruta_csv_best = os.path.join(best_path, "ultimos_resultados.csv")
 
+    # Definimos el nombre de la carpeta de este intento (se usará en ambos casos)
+    nombre_intento = f"intento_F1_{mejor_f1_global:.4f}_{timestamp}"
+    folder_historial = os.path.join(archive_path, nombre_intento)
+
     # Creamos el diccionario con todas las herramientas de esta sesión
     obj_final = {
         'target_variable': target,
         'imputer': imputer, 'scaler': scaler, 'label_encoder': le,
-        'columns': X_cols.columns, 'discretizer': mejor_prep_global,
+        'columns': X_train.columns, 'discretizer': mejor_prep_global,
         'algoritmo': nombre_mejor_global, 'f1_score': mejor_f1_global,
         'average_strategy': avg, 'combinacion_exacta': mejor_comb_global,
         'fecha': timestamp, 'project_name': proyecto,
@@ -576,57 +592,47 @@ def train():
         'stopwords_domain': text_cfg.get('stopwords_domain', [])
     }
 
-    # Comprobamos el récord actual
+    # 1. GUARDAR SIEMPRE EN EL HISTORIAL (Para tener registro de todos)
+    os.makedirs(folder_historial, exist_ok=True)
+    pickle.dump(mejor_clf_global, open(os.path.join(folder_historial, "model.sav"), 'wb'))
+    pickle.dump(obj_final, open(os.path.join(folder_historial, "preprocessing.sav"), 'wb'))
+    pd.DataFrame(resultados_globales).to_csv(os.path.join(folder_historial, "resultados.csv"), index=False)
+    shutil.copy2(f_conf, os.path.join(folder_historial, "configuracion_usada.json"))
+
+    # Guardar el test usado en este intento específico
+    if split_pct > 0:
+        df_test_auto.to_csv(os.path.join(folder_historial, "test.csv"), index=False)
+
+    # 2. CONTROL DE RÉCORD (Actualizar best_model si es mejor)
     f1_actual = 0.0
     if os.path.exists(ruta_obj_best):
         with open(ruta_obj_best, 'rb') as f:
             f1_actual = pickle.load(f).get('f1_score', 0.0)
 
-    # --- CASO A: ES MEJOR (Guardar en best_model) ---
     if mejor_f1_global > f1_actual:
-        # 1. Backup del modelo que va a ser sustituido
+        # Si es un nuevo récord, movemos el "best" antiguo al historial antes de sobrescribir
         if os.path.exists(ruta_model_best):
             with open(ruta_obj_best, 'rb') as f:
                 old_meta = pickle.load(f)
                 old_f1 = old_meta.get('f1_score', 0.0)
                 old_ts = old_meta.get('fecha', 'antiguo').replace(':', '-')
 
-            backup_folder = os.path.join(archive_path, f"RECORD_SUPERADO_F1_{old_f1:.4f}_{old_ts}")
+            # Nombre unificado para el récord superado
+            backup_folder = os.path.join(archive_path, f"intento_F1_{old_f1:.4f}_{old_ts}")
             os.makedirs(backup_folder, exist_ok=True)
-            # Usamos shutil.copy o simplemente renombramos si prefieres moverlo
-            os.rename(ruta_model_best, os.path.join(backup_folder, "model.sav"))
-            os.rename(ruta_obj_best, os.path.join(backup_folder, "preprocessing.sav"))
+            shutil.move(ruta_model_best, os.path.join(backup_folder, "model.sav"))
+            shutil.move(ruta_obj_best, os.path.join(backup_folder, "preprocessing.sav"))
 
-        # 2. Guardado del nuevo récord
+        # Guardamos el nuevo récord en la carpeta principal
         pickle.dump(mejor_clf_global, open(ruta_model_best, 'wb'))
         pickle.dump(obj_final, open(ruta_obj_best, 'wb'))
         pd.DataFrame(resultados_globales).to_csv(ruta_csv_best, index=False)
-
-        # Guardar el test que le corresponde a ESTE modelo específico
         if split_pct > 0:
-            ruta_test_best = os.path.join(best_path, "test_para_este_modelo.csv")
-            df_test_auto.to_csv(ruta_test_best, index=False)
+            df_test_auto.to_csv(os.path.join(best_path, "test.csv"), index=False)
 
-        print(f"\n[!] NUEVO RÉCORD: {mejor_f1_global:.4f}. Actualizado en 'best_model' y el anterior movido al archivo.")
-
-    # --- CASO B: ES PEOR O IGUAL (Guardar en historial/archivo_versiones) ---
+        print(f"\n[!] NUEVO RÉCORD: {mejor_f1_global:.4f}. Actualizado en 'best_model'.")
     else:
-        # Creamos carpeta específica en el historial para no perder este intento
-        nombre_historial = f"intento_F1_{mejor_f1_global:.4f}_{timestamp}"
-        folder_historial = os.path.join(archive_path, nombre_historial)
-        os.makedirs(folder_historial, exist_ok=True)
-
-        # Guardamos los .sav en el historial
-        pickle.dump(mejor_clf_global, open(os.path.join(folder_historial, "model.sav"), 'wb'))
-        pickle.dump(obj_final, open(os.path.join(folder_historial, "preprocessing.sav"), 'wb'))
-
-        # Guardamos el CSV en el historial
-        pd.DataFrame(resultados_globales).to_csv(os.path.join(folder_historial, "resultados.csv"), index=False)
-        # Guardar el test específico de este intento
-        if split_pct > 0:
-            df_test_auto.to_csv(os.path.join(folder_historial, "test_usado.csv"), index=False)
-
-        print(f"\n[-] No supera al mejor ({f1_actual:.4f}). Guardado en historial: {nombre_historial}")
+        print(f"\n[-] No supera al mejor ({f1_actual:.4f}). Guardado en historial: {nombre_intento}")
 
 
 # Esto asegura que la función train() solo arranque si ejecutas el archivo directamente.
