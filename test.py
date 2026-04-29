@@ -1,28 +1,39 @@
 # ==========================================
 # SCRIPT DE EVALUACIÓN / PREDICCIÓN
 # ==========================================
-
 import shutil  # Para copiar el CSV de test dentro de nuestra estructura de carpetas si está fuera
 import pandas as pd  # Para manejar las tablas
 import sys  # Para leer qué CSV desde la terminal
 import pickle  # Para cargar el modelo ganador guardado en train.py
 import os  # Para las rutas de carpetas
-import string
+import re
 from sklearn.metrics import confusion_matrix, f1_score, accuracy_score, precision_score, recall_score  # Fórmulas para comprobar qué tal lo ha hecho adivinando
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 
 
-def limpiar_texto_libre(texto, idioma):
+def limpiar_texto_libre(texto, idioma, negation_words=None, stopwords_domain=None):
+    texto = str(texto).lower()
+    texto = re.sub(r'[^a-z0-9áéíóúñ\s]', '', texto)
+
     try:
         stop_words = set(stopwords.words(idioma))
     except:
         stop_words = set()
+
+    # Si nos pasan la lista de negaciones desde el JSON, las salvamos
+    if negation_words:
+        stop_words = stop_words - set(negation_words)
+
+    # Si nos pasan stopwords extra desde el JSON, las añadimos
+    if stopwords_domain:
+        stop_words = stop_words.union(set(stopwords_domain))
+
     stemmer = PorterStemmer()
-    tokens = word_tokenize(str(texto).lower())
-    tokens = [t for t in tokens if t not in stop_words and t not in string.punctuation]
-    tokens = [stemmer.stem(t) for t in tokens]
+    tokens = word_tokenize(texto)
+    tokens = [stemmer.stem(t) for t in tokens if t not in stop_words]
+
     return " ".join(tokens)
 
 
@@ -87,10 +98,12 @@ def test():
 
         # El idioma también lo podemos sacar del objeto si lo guardaste, o fijarlo a 'spanish'
         idioma = pre_obj.get('language', 'spanish')
+        p_neg = pre_obj.get('negation_words', [])
+        s_dom = pre_obj.get('stopwords_domain', [])
 
         for col in text_columns:
             if col in df.columns:
-                df[col] = df[col].apply(lambda x: limpiar_texto_libre(x, idioma))
+                df[col] = df[col].apply(lambda x: limpiar_texto_libre(x, idioma, p_neg, s_dom))
 
         texto_unido = df[text_columns].apply(lambda x: ' '.join(x), axis=1)
         X_text_transformed = vectorizador.transform(texto_unido)

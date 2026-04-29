@@ -7,7 +7,9 @@ import json  # json nos permite leer el archivo configuration.json donde guardam
 import sys
 import pickle  # pickle es la herramienta para "empaquetar" y guardar nuestro modelo ya entrenado (.sav).
 import os
-import shutil
+import emoji
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 from datetime import datetime
 from imblearn.under_sampling import RandomUnderSampler  # Herramienta para balancear los datos si hay muchas más filas de una clase que de otra (recorta la clase mayoritaria).
 from imblearn.over_sampling import SMOTE, ADASYN
@@ -16,7 +18,8 @@ from sklearn.model_selection import train_test_split  # Partir datos en dos troz
 from sklearn.impute import SimpleImputer  # Herramienta que busca celdas vacías (nulos o NaN) y las rellena (con "median" "mean" "most_frequent").
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.naive_bayes import CategoricalNB, GaussianNB
+from sklearn.naive_bayes import CategoricalNB, GaussianNB, MultinomialNB
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score  # Las fórmulas matemáticas para ponerle nota a nuestro modelo.
 from sklearn.preprocessing import StandardScaler, KBinsDiscretizer, LabelEncoder  # Herramientas de preprocesado: escalar números (Z-score), hacer cajas (bins) y pasar texto a números (LabelEncoder).
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -61,37 +64,35 @@ def registrar_metrica(y_true, y_pred, nom, pars, avg):
 # ---------------------------------------------------------
 # FUNCION PARA PROCESAMIENTO DE TEXTO
 # ---------------------------------------------------------
-def limpiar_texto_libre(texto, idioma):
-    # 1. Normalización y Limpieza de Símbolos
+def limpiar_texto_libre(texto, idioma, negation_words=None, stopwords_domain=None):
+    texto = str(texto)
+    texto = emoji.demojize(texto, language='en').replace(':', ' ')
     texto = str(texto).lower()
-    # Mantenemos letras, números y espacios. Eliminamos iconos y símbolos raros (@%!)
     texto = re.sub(r'[^a-z0-9áéíóúñ\s]', '', texto)
 
-    # 2. Gestión de Stopwords (Palabras vacías)
-    stop_words = set(stopwords.words(idioma))
+    try:
+        stop_words = set(stopwords.words(idioma))
+    except:
+        stop_words = set()
 
-    # CRÍTICO: No eliminar negaciones para Análisis de Sentimiento
-    # Si quitamos "no", la frase "no es bueno" se convierte en "bueno" (Error de polaridad)
-    palabras_negacion = {"no", "ni", "poco", "sin", "nada", "nunca", "tampoco"}
-    stop_words = stop_words - palabras_negacion
+    # Si nos pasan la lista de negaciones desde el JSON, las salvamos
+    if negation_words:
+        stop_words = stop_words - set(negation_words)
 
-    # Opcional: Añadir palabras del dominio que no aportan sentimiento
-    stopwords_dominio = {"whatsapp", "telegram", "app", "aplication", "send", "message"}
-    stop_words = stop_words.union(stopwords_dominio)
+    # Si nos pasan stopwords extra desde el JSON, las añadimos
+    if stopwords_domain:
+        stop_words = stop_words.union(set(stopwords_domain))
 
     stemmer = PorterStemmer()
-
-    # 3. Tokenización y Stemming
     tokens = word_tokenize(texto)
-    # Filtramos stopwords y aplicamos stemming para reducir palabras a su raíz
     tokens = [stemmer.stem(t) for t in tokens if t not in stop_words]
 
     return " ".join(tokens)
 
+
 # ---------------------------------------------------------
 # FUNCIONES DE ENTRENAMIENTO ESPECÍFICAS POR ALGORITMO
 # ---------------------------------------------------------
-
 def entrenar_knn(hp, X_train, y_train, X_dev, y_dev, avg):
     # hp: contiene los hiperparámetros que configuramos en el JSON.
     resultados = []  # Aquí iremos apuntando las notas de cada intento.
@@ -111,6 +112,7 @@ def entrenar_knn(hp, X_train, y_train, X_dev, y_dev, avg):
             for w in hp["knn"]["weights"]:
 
                 # 1. ENTRENAMIENTO: Creamos el modelo con los parámetros actuales y le damos los datos para que aprenda (.fit)
+                print(f"[*] Entrenando KNN con k={k}, p={p}, weights={w}...")
                 clf = KNeighborsClassifier(n_neighbors=k, p=p, weights=w).fit(X_train, y_train)
 
                 # 2. EXAMEN: Le pedimos que adivine los datos de validación (.predict) y calculamos su nota (res, val).
@@ -144,6 +146,7 @@ def entrenar_arboles(hp, X_train, y_train, X_dev, y_dev, avg):
 
             # ENTRENAMIENTO: Creamos el árbol.
             # (El random_state=42 es una semilla para que, si hay empates o decisiones aleatorias, siempre elija lo mismo y sea repetible).
+            print(f"[*] Entrenando Decision Tree con max_depth={d}, min_samples_leaf={ml}...")
             clf = DecisionTreeClassifier(max_depth=d, min_samples_leaf=ml, random_state=42).fit(X_train, y_train)
 
             # EXAMEN: Calculamos la nota del árbol con los datos de prueba.
@@ -173,7 +176,9 @@ def entrenar_rf(hp, X_train, y_train, X_dev, y_dev, avg):
         for d in hp["random_forest"]["max_depth"]:
             # 1. ENTRENAMIENTO: Creamos el bosque con 'n' árboles y profundidad 'd', y lo ponemos a estudiar (.fit).
             # (El random_state=42 vuelve a ser para que el factor "aleatorio" del bosque sea siempre igual si lo repites).
+            print(f"[*] Entrenando Random Forest con n_estimators={n}, max_depth={d}...")
             clf = RandomForestClassifier(n_estimators=n, max_depth=d, random_state=42).fit(X_train, y_train)
+
             # 2. EXAMEN: Hacemos que el bosque intente adivinar los datos de prueba (.predict) y le calculamos la nota.
             res, val = registrar_metrica(y_dev, clf.predict(X_dev), "Random Forest", f"n={n},d={d}", avg)
 
@@ -195,18 +200,32 @@ def entrenar_nb(hp, X_train_ns, y_train_ns, X_dev_imp, y_dev, avg, cat_indices):
     mejor_prep_local = None
     mejor_comb_local = ""
 
-    # Extraemos min_categories (por defecto None si no está en el JSON)
+    # Extraemos parámetros del JSON
     min_cat = hp["naive_bayes"].get("min_categories", None)
+    alphas = hp["naive_bayes"].get("alphas", [0.1, 0.5, 1.0])
 
-    # Bucle 1: Barrido del parámetro alpha (Laplace smoothing)
-    for a in hp["naive_bayes"].get("alphas", [1.0]):
+    # --- 1. MULTINOMIAL NAIVE BAYES (El más recomendado para TF-IDF) ---
+    for a in alphas:
+        print(f"[*] Entrenando MultinomialNB con alpha={a}...")
+        clf_mult = MultinomialNB(alpha=a).fit(X_train_ns, y_train_ns)
 
-        # --- VERSIÓN 1: Categorical Naive Bayes ---
+        res, val = registrar_metrica(y_dev, clf_mult.predict(X_dev_imp), "MultinomialNB", f"alpha={a}", avg)
+        resultados.append(res)
+
+        if val > mejor_f1_local:
+            mejor_f1_local = val
+            mejor_clf_local = clf_mult
+            mejor_prep_local = None
+            mejor_comb_local = res["Combinación"]
+
+    # --- 2. CATEGORICAL NAIVE BAYES ---
+    for a in alphas:
         for bins in hp["naive_bayes"].get("n_bins", [5]):
+            # Discretizamos los datos continuos en categorías
+            print(f"[*] Entrenando CategoricalNB con bins={bins}, alpha={a}...")
             disc = KBinsDiscretizer(n_bins=bins, encode='ordinal', strategy='uniform')
             X_train_nb = disc.fit_transform(X_train_ns)
 
-            # Instanciamos aplicando alpha y min_categories
             clf_cat = CategoricalNB(alpha=a, min_categories=min_cat).fit(X_train_nb, y_train_ns)
 
             res, val = registrar_metrica(y_dev, clf_cat.predict(disc.transform(X_dev_imp)), "CategoricalNB",
@@ -219,8 +238,8 @@ def entrenar_nb(hp, X_train_ns, y_train_ns, X_dev_imp, y_dev, avg, cat_indices):
                 mejor_prep_local = disc
                 mejor_comb_local = res["Combinación"]
 
-    # --- VERSIÓN 2: Gaussian Naive Bayes (Sustituye a MixedNB) ---
-    # GaussianNB no usa alpha (no tiene suavizado de Laplace de la misma forma)
+    # --- 3. GAUSSIAN NAIVE BAYES ---
+    print(f"[*] Entrenando GaussianNB...")
     clf_gau = GaussianNB().fit(X_train_ns, y_train_ns)
 
     res, val = registrar_metrica(y_dev, clf_gau.predict(X_dev_imp), "GaussianNB", "default", avg)
@@ -233,6 +252,39 @@ def entrenar_nb(hp, X_train_ns, y_train_ns, X_dev_imp, y_dev, avg, cat_indices):
         mejor_comb_local = res["Combinación"]
 
     return resultados, mejor_f1_local, mejor_clf_local, mejor_prep_local, mejor_comb_local
+
+
+def entrenar_lr(hp, X_train, y_train, X_dev, y_dev, avg):
+    resultados = []
+    mejor_f1_local = -1
+    mejor_clf_local = None
+    mejor_comb_local = ""
+
+    # Iteramos sobre los hiperparámetros definidos en el JSON
+    for c in hp["logistic_regression"].get("C", [1.0]):
+        for sol in hp["logistic_regression"].get("solver", ["lbfgs"]):
+            try:
+                # 1. ENTRENAMIENTO
+                # Eliminamos 'penalty' para cumplir con las normas de sklearn 1.8
+                print(f"[*] Entrenando Regresión Logística con C={c}, solver={sol}...")
+                clf = LogisticRegression(C=c, solver=sol, max_iter=1000, random_state=42).fit(X_train, y_train)
+
+                # 2. EXAMEN
+                res, val = registrar_metrica(y_dev, clf.predict(X_dev), "Logistic Regression",
+                                             f"C={c},sol={sol}", avg)
+                resultados.append(res)
+
+                # 3. ACTUALIZAR MEJOR LOCAL
+                if val > mejor_f1_local:
+                    mejor_f1_local = val
+                    mejor_clf_local = clf
+                    mejor_comb_local = res["Combinación"]
+
+            except ValueError:
+                # Si el solver no es compatible con el número de clases, lo salta sin romper el programa
+                continue
+
+    return resultados, mejor_f1_local, mejor_clf_local, None, mejor_comb_local
 
 
 # ---------------------------------------------------------
@@ -350,22 +402,29 @@ def train():
 
     if text_cfg.get('enabled', False) and text_columns:
         print(f"[*] Procesando y limpiando columnas de texto: {text_columns}")
+        print(f"[*] Método de procesado de texto utilizado: {text_cfg.get('method')}")
 
         # Obtener idioma del JSON (por defecto 'english')
         idioma = text_cfg.get('language', 'spanish')
 
+        # Leer las listas del JSON (si no existen, devuelve lista vacía)
+        p_neg = text_cfg.get('negation_words', [])
+        s_dom = text_cfg.get('stopwords_domain', [])
+
         for col in text_columns:
             # PASO 1: Limpiar el texto (minúsculas, stopwords, stemmer)
-            df_clean[col] = df_clean[col].apply(lambda x: limpiar_texto_libre(x, idioma))
+            df_clean[col] = df_clean[col].apply(lambda x: limpiar_texto_libre(x, idioma, p_neg, s_dom))
 
         # PASO 2: Unir las columnas de texto limpias en una sola cadena para vectorizar
         texto_unido = df_clean[text_columns].apply(lambda x: ' '.join(x), axis=1)
 
         # PASO 3: Elegir el metodo y vectorizar
+        rango_ngramas = tuple(text_cfg.get('ngram_range', [1, 2]))
+
         if text_cfg.get('method') == "bow":
-            vectorizador = CountVectorizer()
+            vectorizador = CountVectorizer(ngram_range=rango_ngramas, max_df=0.90, min_df=3)
         else:
-            vectorizador = TfidfVectorizer()
+            vectorizador = TfidfVectorizer(analyzer='word', ngram_range=rango_ngramas, max_df=0.90, min_df=3)
 
         X_text = vectorizador.fit_transform(texto_unido)
         df_text = pd.DataFrame(X_text.toarray(), columns=vectorizador.get_feature_names_out(), index=df_clean.index)
@@ -377,7 +436,7 @@ def train():
     # get_dummies es el One-Hot Encoding: convierte columnas de texto (ej. Color: Rojo, Verde) en varias columnas binarias (Color_Rojo: 1 o 0). drop_first=True evita redundancias matemáticas.
     X_cols = pd.get_dummies(df_clean.drop(columns=[target]), drop_first=True)
 
-    # Esto borra las columnas que sean todas iguales (si una colmna no aporta información, se borra).
+    # Esto borra las columnas que sean todas iguales (si una columna no aporta información, se borra).
     X_cols = X_cols.loc[:, (X_cols != X_cols.iloc[0]).any()]
 
     # La 'y' es nuestra columna de soluciones pasada a números
@@ -485,6 +544,17 @@ def train():
             nombre_mejor_global = "Naive Bayes"
             mejor_comb_global = comb
 
+    if algoritmo_elegido in ["lr", "todos"]:
+        res, f1, clf, prep, comb = entrenar_lr(hp, X_train_model, y_train_model, X_dev_prep, y_dev, avg)
+        resultados_globales.extend(res)
+
+        if f1 > mejor_f1_global:
+            mejor_f1_global = f1
+            mejor_clf_global = clf
+            mejor_prep_global = prep
+            nombre_mejor_global = "Logistic Regression"
+            mejor_comb_global = comb
+
     # ==========================================
     # 12. GUARDADO Y ARCHIVADO (LÓGICA MEJOR/PEOR)
     # ==========================================
@@ -501,7 +571,9 @@ def train():
         'average_strategy': avg, 'combinacion_exacta': mejor_comb_global,
         'fecha': timestamp, 'project_name': proyecto,
         'vectorizador_texto': vectorizador, 'text_columns_original': text_columns,
-        'language': idioma, 'drop_features': conf_pre.get('drop_features', [])
+        'language': idioma, 'drop_features': conf_pre.get('drop_features', []),
+        'negation_words': text_cfg.get('negation_words', []),
+        'stopwords_domain': text_cfg.get('stopwords_domain', [])
     }
 
     # Comprobamos el récord actual
@@ -512,14 +584,30 @@ def train():
 
     # --- CASO A: ES MEJOR (Guardar en best_model) ---
     if mejor_f1_global > f1_actual:
-        # Guardamos los archivos .sav
+        # 1. Backup del modelo que va a ser sustituido
+        if os.path.exists(ruta_model_best):
+            with open(ruta_obj_best, 'rb') as f:
+                old_meta = pickle.load(f)
+                old_f1 = old_meta.get('f1_score', 0.0)
+                old_ts = old_meta.get('fecha', 'antiguo').replace(':', '-')
+
+            backup_folder = os.path.join(archive_path, f"RECORD_SUPERADO_F1_{old_f1:.4f}_{old_ts}")
+            os.makedirs(backup_folder, exist_ok=True)
+            # Usamos shutil.copy o simplemente renombramos si prefieres moverlo
+            os.rename(ruta_model_best, os.path.join(backup_folder, "model.sav"))
+            os.rename(ruta_obj_best, os.path.join(backup_folder, "preprocessing.sav"))
+
+        # 2. Guardado del nuevo récord
         pickle.dump(mejor_clf_global, open(ruta_model_best, 'wb'))
         pickle.dump(obj_final, open(ruta_obj_best, 'wb'))
-
-        # Guardamos el CSV de resultados detallados
         pd.DataFrame(resultados_globales).to_csv(ruta_csv_best, index=False)
 
-        print(f"\n[!] NUEVO RÉCORD: {mejor_f1_global:.4f}. Actualizado en 'best_model'.")
+        # Guardar el test que le corresponde a ESTE modelo específico
+        if split_pct > 0:
+            ruta_test_best = os.path.join(best_path, "test_para_este_modelo.csv")
+            df_test_auto.to_csv(ruta_test_best, index=False)
+
+        print(f"\n[!] NUEVO RÉCORD: {mejor_f1_global:.4f}. Actualizado en 'best_model' y el anterior movido al archivo.")
 
     # --- CASO B: ES PEOR O IGUAL (Guardar en historial/archivo_versiones) ---
     else:
@@ -534,6 +622,9 @@ def train():
 
         # Guardamos el CSV en el historial
         pd.DataFrame(resultados_globales).to_csv(os.path.join(folder_historial, "resultados.csv"), index=False)
+        # Guardar el test específico de este intento
+        if split_pct > 0:
+            df_test_auto.to_csv(os.path.join(folder_historial, "test_usado.csv"), index=False)
 
         print(f"\n[-] No supera al mejor ({f1_actual:.4f}). Guardado en historial: {nombre_historial}")
 

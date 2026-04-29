@@ -18,6 +18,8 @@ Thumbs.db
 .idea/
 .venv/
 venv/
+.venv2/
+venv2/
 
 # --- Archivos .csv ...
 WhatsApp.csv
