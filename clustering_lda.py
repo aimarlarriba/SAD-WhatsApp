@@ -3,9 +3,16 @@ import re
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
-import gensim
 import gensim.corpora as corpora
 from gensim.models import LdaModel
+from langdetect import detect, LangDetectException
+
+# ==========================================
+# AJUSTE MANUAL DE TÓPICOS
+# ==========================================
+# Valores de K basándonos en la gráfica del codo
+K_POSITIVOS = 8
+K_NEGATIVOS = 2
 
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
@@ -18,43 +25,60 @@ except FileNotFoundError:
     print("[!] Error: No se encuentra 'train_opiniones.csv'.")
     exit(1)
 
+# ==========================================
+# DETECCIÓN DE IDIOMA
+# ==========================================
+
+def es_ingles(texto):
+    try:
+        return detect(str(texto)) == 'en'
+    except LangDetectException:
+        return False
+
+# Filtramos las filas
+df = df[df['content'].apply(es_ingles)].copy()
+
 # Inicializamos el lematizador
 lemmatizer = WordNetLemmatizer()
-
 
 def limpieza_temas(texto):
     texto = str(texto).lower()
     texto = re.sub(r'[^a-z\s]', '', texto)
 
+    # Stopwords para eliminar ruido
     stop_words = set(stopwords.words('english')).union({
-        'whatsapp', 'telegram', 'app', 'application', 'send',
-        'message', 'messages', 'can', 'just', 'like', 'im',
-        'get', 'even', 'one', 'would', 'really', 'phone',
-        'please', 'dont', 'cant', 'something', 'thing', 'know',
-        'make', 'use'
+        'whatsapp', 'telegram', 'app', 'application', 'send', 'message', 'messages',
+        'can', 'just', 'like', 'im', 'get', 'even', 'one', 'would', 'really', 'phone',
+        'please', 'dont', 'cant', 'something', 'thing', 'know', 'make', 'use',
+        'good', 'nice', 'great', 'best', 'excellent', 'amazing', 'awesome', 'bad',
+        'worst', 'terrible', 'love', 'hate', 'better', 'well', 'always', 'lot',
+        'could', 'take', 'part', 'find', 'definitely', 'much', 'many', 'also',
+        'overall', 'stand', 'arent', 'without', 'feel', 'time', 'long', 'new',
+        'issue', 'problem', 'people', 'work', 'say', 'try', 'want', 'give'
     })
 
     tokens = []
     for t in texto.split():
         if t not in stop_words and len(t) > 2:
+            # Lematizamos por verbo, sustantivo, adjetivo y adverbio
             lema = lemmatizer.lemmatize(t, pos='v')
             lema = lemmatizer.lemmatize(lema, pos='n')
+            lema = lemmatizer.lemmatize(lema, pos='a')
+            lema = lemmatizer.lemmatize(lema, pos='r')
             tokens.append(lema)
-
     return tokens
-
 
 print("[*] Limpiando y lematizando texto para análisis de tópicos...")
 df['tokens'] = df['content'].apply(limpieza_temas)
+# Eliminamos registros que se hayan quedado sin tokens
+df = df[df['tokens'].map(len) > 0]
 
 # ==========================================
 # TRANSFORMACIÓN DE DATOS (Fecha y Continente)
-# Lo hacemos antes para tenerlo listo
 # ==========================================
 print("[*] Procesando fechas y ubicaciones...")
 df['date'] = pd.to_datetime(df['date'], errors='coerce')
 df['mes_año'] = df['date'].dt.to_period('M').astype(str)
-
 
 def obtener_continente(location_str):
     if pd.isnull(location_str): return 'Unknown'
@@ -80,7 +104,6 @@ def obtener_continente(location_str):
         return 'Africa'
     else:
         return 'Other'
-
 
 df['continente'] = df['location'].apply(obtener_continente)
 
@@ -109,11 +132,8 @@ for sent in sentimientos_a_analizar:
     id2word.filter_extremes(no_below=5, no_above=0.5)
     corpus = [id2word.doc2bow(text) for text in df_subset['tokens']]
 
-    # Dentro del bucle for sent in sentimientos_a_analizar:
-    if sent == 'positivo':
-        n_topics = 2
-    else:
-        n_topics = 7
+    # Asignamos el K manual
+    n_topics = K_POSITIVOS if sent == 'positivo' else K_NEGATIVOS
 
     print(f"[*] Entrenando modelo LDA ({sent.upper()}) con {n_topics} tópicos...")
 
@@ -127,7 +147,7 @@ for sent in sentimientos_a_analizar:
         eta='auto'
     )
 
-    resumen_topicos += f"\n--- TÓPICOS PARA: {sent.upper()} ---\n"
+    resumen_topicos += f"\n--- TÓPICOS PARA: {sent.upper()} (K={n_topics}) ---\n"
     for idx, topic in lda_model.print_topics(-1):
         info_topico = f"Tópico {sent.upper()}_{idx}: {topic}"
         print(info_topico)
@@ -138,7 +158,6 @@ for sent in sentimientos_a_analizar:
     for row in lda_model[corpus]:
         row = sorted(row, key=lambda x: (x[1]), reverse=True)
         top_topic = row[0][0]
-        # Pegamos el texto para que en Tableau se lea "POSITIVO_0" o "NEGATIVO_2"
         sent_topics.append(f"{sent.upper()}_{top_topic}")
 
     df_subset['id_topico'] = sent_topics
@@ -152,11 +171,11 @@ for sent in sentimientos_a_analizar:
 
     analisis_extra += f"\n2. Porcentaje de Tópicos por APLICACIÓN ({sent.upper()}):\n"
     tabla_fuente_pct = pd.crosstab(df_subset['source'], df_subset['id_topico'], normalize='index') * 100
-    # ¡CORRECCIÓN IMPLACABLE AQUÍ! Faltaba el .to_string() envolviéndolo todo
     analisis_extra += (tabla_fuente_pct.round(2).astype(str) + "%").to_string() + "\n"
 
     # Acumulamos los datos procesados
     df_final = pd.concat([df_final, df_subset])
+
 # ==========================================
 # GUARDADO DE DATOS
 # ==========================================
@@ -169,5 +188,4 @@ with open('resumen_topicos.txt', 'w', encoding='utf-8') as f:
 df_final = df_final.drop(columns=['tokens'])
 df_final.to_csv('train_con_lda.csv', index=False, encoding='utf-8-sig')
 
-print(
-    "\n[ESTADO] Análisis finalizado. 'train_con_lda.csv' y 'resumen_topicos.txt' generados.")
+print("\n[ESTADO] Análisis finalizado. 'train_con_lda.csv' y 'resumen_topicos.txt' generados.")
