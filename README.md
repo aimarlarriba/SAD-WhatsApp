@@ -251,6 +251,12 @@ python clustering_lda.py
 # Visualizar la distribución semántica 
 python grafico_lda.p
 ```
+
+---
+
+## Librerias Empleadas
+Este proyecto utiliza distintas librerias, todas ellas incluidas en el archivo `requirements.txt`.
+
 ---
 
 ## Licencia

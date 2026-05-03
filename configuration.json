@@ -1,11 +1,11 @@
 {
-  "project_name": "Whatsapp",
-  "algorithm": "nb",
+  "project_name": "Nombre",
+  "algorithm": "todos",
   "average_strategy": "macro",
   "preprocessing": {
     "test_split": 0.2,
-    "target_variable": "sentiment",
-    "drop_features": ["reviewID", "gender", "location", "date", "source"],
+    "target_variable": "target",
+    "drop_features": [],
     "missing_values": "none",
     "impute_strategy": "median",
     "scaling": "none",
@@ -14,46 +14,37 @@
     "text_processing": {
       "enabled": true,
       "columns": ["content"],
-      "processing_type": "lemmatize",
-      "method": "tf-idf",
+      "processing_type": "stem",
+      "method": "bow",
       "language": "english",
       "ngram_range": [1, 2],
-      "stopwords_domain": [
-        "whatsapp", "telegram", "app", "application", "send",
-        "message", "messages", "can", "just", "like", "im",
-        "get", "even", "one", "would", "really", "phone"],
-      "negation_words": [
-        "no", "nor", "not", "dont", "don't", "ain", "ain't", "arent", "aren't", "couldnt", "couldn't",
-        "didnt", "didn't", "doesnt", "doesn't", "hadnt", "hadn't", "hasnt", "hasn't", "havent",
-        "haven't", "isnt", "isn't", "mightnt", "mightn't", "mustnt", "mustn't", "neednt",
-        "needn't", "shant", "shan't", "shouldnt", "shouldn't", "wasnt", "wasn't", "werent",
-        "weren't", "wont", "won't", "wouldnt", "wouldn't", "never", "nothing", "without",
-        "but", "although", "however"]
+      "stopwords_domain": [],
+      "negation_words": []
     }
   },
   "hyperparameters": {
     "knn": {
       "k_min": 3,
-      "k_max": 11,
+      "k_max": 7,
       "p_min": 1,
       "p_max": 2,
       "weights": ["uniform", "distance"]
     },
     "trees": {
-      "max_depth": [10, 20, 30, null],
-      "min_samples_leaf": [1, 2, 5]
+      "max_depth": [10, 20],
+      "min_samples_leaf": [1, 2]
     },
     "random_forest": {
-        "n_estimators": [100, 200, 300],
-        "max_depth": [10, 20, null]
+        "n_estimators": [100, 200],
+        "max_depth": [10, 20]
     },
     "naive_bayes": {
       "n_bins": [5, 10, 15],
-      "alphas": [0.01, 0.1, 0.5, 1.0],
+      "alphas": [0.01, 0.1],
       "min_categories": null
     },
     "logistic_regression": {
-      "C": [0.001, 0.005, 0.01, 0.1, 1.0, 2.0, 10.0, 20.0],
+      "C": [0.01, 0.1],
       "solver": ["lbfgs", "saga"]
     }
   }
