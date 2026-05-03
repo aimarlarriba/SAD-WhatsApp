@@ -9,7 +9,7 @@ El proyecto abarca desde la limpieza de datos en crudo hasta el modelado de tóp
 
 ## Desarrollado por:
 * **Urko Horas**
-* **Lou Gómez**
+* **Lou Marine Gómez**
 * **Aimar Larriba**
 * **Eneko Rodríguez**
 
@@ -21,10 +21,9 @@ El repositorio está estructurado para reflejar el ciclo de vida de los datos:
 ### 1. Preprocesamiento y Preparación de Datos  
 *   **`preparar_csv.py`**: Automatiza la unificación y normalización de datasets (fuentes reales y sintéticas) en un CSV maestro para el entrenamiento de modelos de IA. El código estandariza las notas de cada opinión en etiquetas (positivo, negativo y neutro), limpia inconsistencias en el texto y homogeniza estructuras dispares, garantizando un corpus de datos limpio y listo para tareas de NLP.
   
-### 2. Aprendizaje No Supervisado (Topic Modeling)  
-*   **`clustering_lda.py`**: Implementación de Latent Dirichlet Allocation (LDA) para descubrir estructuras ocultas en los textos. Identifica los tópicos latentes (ej. "Lentitud", "Fallos de Cuenta", "Experiencia Multidispositivo").  
-*   **`grafico_lda.py`**: Módulo de visualización para proyectar los clusters generados, permitiendo interpretar semánticamente de qué se quejan exactamente los usuarios de cada plataforma.  
-  
+### 2. Aprendizaje No Supervisado (Topic Modeling)
+*   **`grafico_lda.py`**: Entorno de experimentación y evaluación. Itera el modelo generativo LDA probando múltiples configuraciones de tópicos (K). Utiliza la métrica matemática de **Coherencia (C_V)** para determinar empíricamente el número óptimo de clusters (diferenciando entre reseñas positivas y negativas) antes de pasar a producción.
+*   **`clustering_lda.py`**: Pipeline de producción e Inteligencia de Negocio. Implementa Latent Dirichlet Allocation (LDA) con los hiperparámetros óptimos extraídos de la gráfica. Aísla las quejas funcionales eliminando ruido emocional, etiqueta las reseñas, y cruza probabilísticamente los tópicos con metadatos de los usuarios (Continente, Plataforma, Género y Mes/Año). Los resultados alimentan directamente la toma de decisiones en Tableau. 
 ### 3. Machine Learning Tradicional (Supervisado)
 * **`train.py`**: Script que realiza la carga de datos, preproceso dinámico, partición estratificada, barrido de parámetros (Grid Search) y selección del mejor modelo.
 * **`test.py`**: Programa para cargar el modelo ganador y clasificar nuevas instancias, manteniendo la consistencia del preproceso.
@@ -244,12 +243,13 @@ python generativo_fewShot.py
 
 ### 5. Análisis de Tópicos
 Para descubrir de qué hablan los usuarios y visualizar los resultados:
+
 ```bash
-# Generar los clusters de tópicos 
+# Evaluar la coherencia semántica para decidir el número óptimo de tópicos (K)
+python grafico_lda.p
+# Aplicar los hiperparámetros óptimos y generar el informe de Inteligencia de Negocio
 python clustering_lda.py 
 
-# Visualizar la distribución semántica 
-python grafico_lda.p
 ```
 
 ---
