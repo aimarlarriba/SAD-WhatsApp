@@ -47,11 +47,11 @@ def limpieza_temas(texto, stop_words):
 
 # Todo el código de ejecución debe ir aquí dentro por el multiprocesamiento en Windows
 if __name__ == '__main__':
-    print("[*] Leyendo train_opiniones.csv para generar la gráfica...")
+    print("[*] Leyendo train_opiniones_balanceado.csv para generar la gráfica...")
     try:
-        df = pd.read_csv('train_opiniones.csv')
+        df = pd.read_csv('train_opiniones_balanceado.csv')
     except FileNotFoundError:
-        print("[!] Error: No se encuentra 'train_opiniones.csv'.")
+        print("[!] Error: No se encuentra 'train_opiniones_balanceado.csv'.")
         exit(1)
 
     nltk.download('stopwords', quiet=True)
@@ -131,4 +131,4 @@ if __name__ == '__main__':
     plt.grid(True, linestyle='--', alpha=0.6)
     plt.tight_layout()
     plt.show()
-    print("\n[OK] ¡Listo!.")
+    print("\n[OK] ¡Listo!")

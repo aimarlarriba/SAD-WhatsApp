@@ -18,11 +18,11 @@ nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
 nltk.download('omw-1.4', quiet=True)
 
-print("[*] Leyendo train_opiniones.csv...")
+print("[*] Leyendo train_opiniones_balanceado.csv...")
 try:
-    df = pd.read_csv('train_opiniones.csv')
+    df = pd.read_csv('train_opiniones_balanceado.csv')
 except FileNotFoundError:
-    print("[!] Error: No se encuentra 'train_opiniones.csv'.")
+    print("[!] Error: No se encuentra 'train_opiniones_balanceado.csv'.")
     exit(1)
 
 # ==========================================
