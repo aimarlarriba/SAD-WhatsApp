@@ -1,5 +1,6 @@
 # --- Datasets ---
 *.csv
+configuracion_usada.json
 
 # --- Modelos y Binarios ---
 # Los modelos se deben generar ejecutando el script, no subirse
