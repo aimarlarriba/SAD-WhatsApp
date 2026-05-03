@@ -26,3 +26,5 @@ venv2/
 WhatsApp.csv
 Telegram.csv
 resumen_topicos.txt
+train_opiniones_balanceadas.txt
+resenas_sinteticas*
