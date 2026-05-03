@@ -2,18 +2,39 @@
 # SCRIPT DE EVALUACIÓN / PREDICCIÓN
 # ==========================================
 import shutil  # Para copiar el CSV de test dentro de nuestra estructura de carpetas si está fuera
+
+import emoji
+import nltk
 import pandas as pd  # Para manejar las tablas
 import sys  # Para leer qué CSV desde la terminal
 import pickle  # Para cargar el modelo ganador guardado en train.py
 import os  # Para las rutas de carpetas
 import re
+
+from nltk import WordNetLemmatizer
 from sklearn.metrics import confusion_matrix, f1_score, accuracy_score, precision_score, recall_score  # Fórmulas para comprobar qué tal lo ha hecho adivinando
-from nltk.corpus import stopwords
+from nltk.corpus import stopwords, wordnet
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 
 
-def limpiar_texto_libre(texto, idioma, negation_words=None, stopwords_domain=None):
+def get_wordnet_pos(word):
+    """Mapea etiquetas POS de NLTK a formatos compatibles con WordNetLemmatizer"""
+    tag = nltk.pos_tag([word])[0][1][0].upper()
+    tag_dict = {"J": wordnet.ADJ,
+                "N": wordnet.NOUN,
+                "V": wordnet.VERB,
+                "R": wordnet.ADV}
+
+    return tag_dict.get(tag, wordnet.NOUN) # Por defecto sustantivo
+
+
+lemmatizer = WordNetLemmatizer()
+stemmer = PorterStemmer()
+
+def limpiar_texto_libre(texto, idioma, processing_type, negation_words=None, stopwords_domain=None):
+    texto = str(texto)
+    texto = emoji.demojize(texto, language='en').replace(':', ' ')
     texto = str(texto).lower()
     texto = re.sub(r'[^a-z0-9áéíóúñ\s]', '', texto)
 
@@ -30,12 +51,13 @@ def limpiar_texto_libre(texto, idioma, negation_words=None, stopwords_domain=Non
     if stopwords_domain:
         stop_words = stop_words.union(set(stopwords_domain))
 
-    stemmer = PorterStemmer()
     tokens = word_tokenize(texto)
-    tokens = [stemmer.stem(t) for t in tokens if t not in stop_words]
+    if processing_type == "lemmatize":
+        tokens = [lemmatizer.lemmatize(t, get_wordnet_pos(t)) for t in tokens if t not in stop_words]
+    elif processing_type == "stem":
+        tokens = [stemmer.stem(t) for t in tokens]
 
     return " ".join(tokens)
-
 
 def test():
     # 1. COMPROBAR TERMINAL
@@ -93,6 +115,7 @@ def test():
     df = pd.read_csv(ruta_final_datos)
     vectorizador = pre_obj.get('vectorizador_texto')
     text_columns = pre_obj.get('text_columns_original', [])
+    processing_type = pre_obj.get('processing_type', [])
 
     # Si hay un vectorizador guardado, procesamos el texto automáticamente
     if vectorizador is not None and len(text_columns) > 0:
@@ -105,7 +128,7 @@ def test():
 
         for col in text_columns:
             if col in df.columns:
-                df[col] = df[col].apply(lambda x: limpiar_texto_libre(x, idioma, p_neg, s_dom))
+                df[col] = df[col].apply(lambda x: limpiar_texto_libre(x, idioma, processing_type, p_neg, s_dom))
 
         texto_unido = df[text_columns].apply(lambda x: ' '.join(x), axis=1)
         X_text_transformed = vectorizador.transform(texto_unido)

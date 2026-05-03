@@ -1,6 +1,6 @@
 {
   "project_name": "Whatsapp",
-  "algorithm": "todos",
+  "algorithm": "nb",
   "average_strategy": "macro",
   "preprocessing": {
     "test_split": 0.2,
@@ -14,17 +14,21 @@
     "text_processing": {
       "enabled": true,
       "columns": ["content"],
+      "processing_type": "lemmatize",
       "method": "tf-idf",
       "language": "english",
       "ngram_range": [1, 2],
+      "stopwords_domain": [
+        "whatsapp", "telegram", "app", "application", "send",
+        "message", "messages", "can", "just", "like", "im",
+        "get", "even", "one", "would", "really", "phone"],
       "negation_words": [
         "no", "nor", "not", "dont", "don't", "ain", "ain't", "arent", "aren't", "couldnt", "couldn't",
         "didnt", "didn't", "doesnt", "doesn't", "hadnt", "hadn't", "hasnt", "hasn't", "havent",
         "haven't", "isnt", "isn't", "mightnt", "mightn't", "mustnt", "mustn't", "neednt",
         "needn't", "shant", "shan't", "shouldnt", "shouldn't", "wasnt", "wasn't", "werent",
         "weren't", "wont", "won't", "wouldnt", "wouldn't", "never", "nothing", "without",
-        "but", "although", "however"
-      ]
+        "but", "although", "however"]
     }
   },
   "hyperparameters": {
@@ -49,7 +53,7 @@
       "min_categories": null
     },
     "logistic_regression": {
-      "C": [0.01, 0.1, 1.0, 10.0, 100.0],
+      "C": [0.001, 0.005, 0.01, 0.1, 1.0, 2.0, 10.0, 20.0],
       "solver": ["lbfgs", "saga"]
     }
   }
