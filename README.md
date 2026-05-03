@@ -59,8 +59,8 @@ Este proyecto está bajo la Licencia MIT. Consulta el archivo [LICENSE](LICENSE)
 ## Declaración de Asistencia de IA
 Se ha hecho uso de herramientas de IA Generativa (Gemini) como asistente para:
 
-* **Estructuración técnica**: Diseño de la lógica de persistencia, partición de datos y gestión de carpetas por proyecto.
-* **Depuración de código**: Resolución de problemas en el preprocesado dinámico (One-Hot Encoding con `get_dummies`) y flujos de variables.
-* **Documentación**: Redacción y formato Markdown de este archivo README.
+* **Depuración de código LLM**: Resolución de problemas de formato y métricas en el pipeline de Inferencia Generativa (*Few-Shot Prompting* con LangChain y Ollama).
+* **Enfoque analítico**: Asistencia en la extracción de conclusiones estratégicas (benchmarking de competidores) para la narrativa visual de los dashboards de Tableau.
+* **Documentación**: Redacción, estructuración y formato Markdown del presente archivo README para reflejar el estado real de la arquitectura.
 
 ***Nota:** Todo el código ha sido validado y testeado manualmente para asegurar su integridad y cumplimiento con los objetivos de la asignatura.*
