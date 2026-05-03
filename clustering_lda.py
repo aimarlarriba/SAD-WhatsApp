@@ -162,8 +162,10 @@ for sent in sentimientos_a_analizar:
 
     df_subset['id_topico'] = sent_topics
 
-    # Analíticas para este sentimiento
-    analisis_extra += f"\n\n>>> ANÁLISIS DEMOGRÁFICO PARA: {sent.upper()} <<<\n"
+    # ==========================================
+    # ANALÍTICAS DE NEGOCIO (Demografía y Tiempo)
+    # ==========================================
+    analisis_extra += f"\n\n>>> ANÁLISIS DEMOGRÁFICO Y TEMPORAL PARA: {sent.upper()} <<<\n"
 
     analisis_extra += f"\n1. Tópico más frecuente por CONTINENTE ({sent.upper()}):\n"
     analisis_extra += df_subset.groupby('continente')['id_topico'].apply(
@@ -172,6 +174,17 @@ for sent in sentimientos_a_analizar:
     analisis_extra += f"\n2. Porcentaje de Tópicos por APLICACIÓN ({sent.upper()}):\n"
     tabla_fuente_pct = pd.crosstab(df_subset['source'], df_subset['id_topico'], normalize='index') * 100
     analisis_extra += (tabla_fuente_pct.round(2).astype(str) + "%").to_string() + "\n"
+
+    analisis_extra += f"\n3. Evolución de Tópicos por MES/AÑO ({sent.upper()}):\n"
+    tabla_mes = pd.crosstab(df_subset['mes_año'], df_subset['id_topico'])
+    analisis_extra += tabla_mes.to_string() + "\n"
+
+    analisis_extra += f"\n4. Porcentaje de Tópicos por GÉNERO ({sent.upper()}):\n"
+    if 'gender' in df_subset.columns:
+        tabla_genero = pd.crosstab(df_subset['gender'], df_subset['id_topico'], normalize='index') * 100
+        analisis_extra += (tabla_genero.round(2).astype(str) + "%").to_string() + "\n"
+    else:
+        analisis_extra += "[!] La columna 'gender' no se encuentra en los datos.\n"
 
     # Acumulamos los datos procesados
     df_final = pd.concat([df_final, df_subset])
