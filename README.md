@@ -227,8 +227,8 @@ El sistema implementa el paradigma de **Configuración como Código**, permitien
 ### 2. Configuración del Entorno Virtual
 ```bash
 # Clonar el repositorio
-git clone https://github.com/aimarlarriba/SAD-WhatsApp.git
-cd SAD-WhatsApp
+git clone https://github.com/aimarlarriba/whatsapp-vs-telegram-nlp.git
+cd whatsapp-vs-telegram-nlp
 
 # Crear y activar entorno virtual
 python -m venv .venv
