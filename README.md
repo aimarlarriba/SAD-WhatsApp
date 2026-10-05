@@ -1,13 +1,317 @@
+# 📱 WhatsApp vs. Telegram: Customer Intelligence & NLP Pipeline
 
-# WhatsApp vs. Telegram: Customer Intelligence & NLP Pipeline
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Scikit-Learn](https://img.shields.io/badge/scikit_learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
+[![Gensim](https://img.shields.io/badge/Gensim-Topic_Modeling-4B8BBE?style=for-the-badge)](https://radimrehurek.com/gensim/)
+[![LangChain](https://img.shields.io/badge/LangChain-Framework-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)](https://www.langchain.com/)
+[![Ollama](https://img.shields.io/badge/Ollama-Local_LLM-000000?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com/)
+[![Tableau](https://img.shields.io/badge/Tableau-Business_Intelligence-E97627?style=for-the-badge&logo=tableau&logoColor=white)](https://www.tableau.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
-Este repositorio contiene la implementación un pipeline completo de procesamiento de Lenguaje Natural (NLP) y Machine Learning diseñado para auditar la salud competitiva de WhatsApp frente a Telegram, todo ello para la asignatura de **Sistemas de Ayuda a la Decisión (SAD)** de la **Universidad del País Vasco (UPV/EHU)**. El objetivo principal es ir más allá de la simple clasificación de sentimientos, logrando extraer inteligencia de negocio procesable sobre los motivos reales de retención y fuga de usuarios.  
- 
-El proyecto abarca desde la limpieza de datos en crudo hasta el modelado de tópicos no supervisado, culminando en una comparativa técnica entre algoritmos de clasificación tradicionales y modelos de Inteligencia Artificial Generativa. Los hallazgos se visualizan estratégicamente mediante dashboards en Tableau.
+> **Pipeline integral de Procesamiento de Lenguaje Natural (NLP), Modelado de Tópicos No Supervisado y Clasificación de Sentimientos para auditar la retención, fricción y salud competitiva entre WhatsApp y Telegram.**
 
-## Desarrollado por:
+---
+
+## 📋 Tabla de Contenidos
+- [Visión General y Valor de Negocio](#-visión-general-y-valor-de-negocio)
+- [Arquitectura del Sistema (End-to-End)](#-arquitectura-del-sistema-end-to-end)
+- [Componentes del Pipeline](#-componentes-del-pipeline)
+  - [1. Data Engineering y Aumento Generativo](#1-data-engineering-y-aumento-generativo)
+  - [2. Topic Modeling No Supervisado (LDA & Coherencia $C_v$)](#2-topic-modeling-no-supervisado-lda--coherencia-c_v)
+  - [3. Motor de Machine Learning Automatizado (Grid Search & Model Registry)](#3-motor-de-machine-learning-automatizado-grid-search--model-registry)
+  - [4. Clasificación con LLM Local (Few-Shot Prompting)](#4-clasificación-con-llm-local-few-shot-prompting)
+  - [5. Business Intelligence & Analítica Estratégica](#5-business-intelligence--analítica-estratégica)
+- [Estructura del Proyecto](#-estructura-del-proyecto)
+- [Configuración del Sistema (`configuration.json`)](#-configuración-del-sistema-configurationjson)
+- [Guía de Instalación y Ejecución](#-guía-de-instalación-y-ejecución)
+- [Benchmark de Modelos y Hallazgos](#-benchmark-de-modelos-y-hallazgos)
+- [Buenas Prácticas de Ingeniería](#-buenas-prácticas-de-ingeniería)
+- [Equipo y Contexto Académico](#-equipo-y-contexto-académico)
+- [Licencia](#-licencia)
+
+---
+
+## 🎯 Visión General y Valor de Negocio
+
+En el mercado global de mensajería instantánea, la retención de usuarios depende críticamente de la experiencia de usuario (UX), la privacidad, la estabilidad en actualizaciones y las limitaciones funcionales. 
+
+Este proyecto implementa una solución completa de **Sistemas de Ayuda a la Decisión (SAD)** orientada a la inteligencia competitiva:
+* **Más allá del sentimiento superficial**: En lugar de limitarse a clasificar opiniones como "positivas" o "negativas", el sistema descompone los motivos semánticos subyacentes mediante **Latent Dirichlet Allocation (LDA)**.
+* **Aislamiento de quejas funcionales vs. alabanzas**: Segmentación semántica guiada por la métrica matemática de **Coherencia ($C_v$)** para identificar con precisión quirúrgica por qué los usuarios migran o abandonan una plataforma.
+* **Benchmark Híbrido**: Comparación rigurosa de rendimiento, latencia y costes operativos entre **5 algoritmos clásicos de Machine Learning** y técnicas avanzadas de **IA Generativa local (LLM Gemma 2 con Few-Shot Prompting)**.
+* **Cruce Demográfico y Temporal**: Enriquecimiento probabilístico de reseñas con Continente, Plataforma, Género y Temporalidad, generando datasets estructurados listos para paneles ejecutivos en **Tableau**.
+
+---
+
+## 🏗️ Arquitectura del Sistema (End-to-End)
+
+El flujo de trabajo sigue un ciclo de vida de datos modular, reproducible y desacoplado:
+
+```mermaid
+flowchart TD
+    subgraph Ingestion["1. Ingesta & Data Prep"]
+        D1[WhatsApp Reviews CSV] --> P[preparar_csv.py]
+        D2[Telegram Reviews CSV] --> P
+        D3[LLM Synthetic Generator<br/>generativo_oversampling.py] -. Balanceo Sintético .-> P
+        P --> M[train_opiniones_balanceado.csv]
+    end
+
+    subgraph Unsupervised["2. Topic Discovery (No Supervisado)"]
+        M --> GL[grafico_lda.py]
+        GL -- "Optimización Coherencia C_v" --> K["K Óptimo Determinado<br/>(K_pos=8, K_neg=2)"]
+        K --> CL[clustering_lda.py]
+        CL --> TAB[train_con_lda.csv]
+        CL --> TXT[resumen_topicos.txt]
+        TAB --> BI[Dashboards en Tableau]
+    end
+
+    subgraph Supervised["3. Machine Learning Clásico"]
+        M --> TR[train.py]
+        CFG[configuration.json] --> TR
+        TR --> Split["División Estratificada (Train / Dev)"]
+        Split --> Prep["Preprocesado & Vectorización<br/>(BoW / TF-IDF, Lemmatization, Scaling)"]
+        Prep --> GS["Grid Search Tournament<br/>(KNN, Tree, RF, NB, LogReg)"]
+        GS --> Champion{"¿Supera Récord F1?"}
+        Champion -- Sí --> Best["best_model/<br/>(bestmodel.sav + preproc)"]
+        Champion -- No --> Arch["archivo_versiones/<br/>(Historial de Intentos)"]
+        Best --> TE[test.py]
+        TE --> Preds["Predicciones & Matriz de Confusión"]
+    end
+
+    subgraph Generative["4. Inferencia Generativa Local"]
+        M --> LLM_Script[generativo_fewShot.py]
+        OLL[Ollama Service<br/>Gemma 2:2B] --> LLM_Script
+        LLM_Script --> Eval["Evaluación Few-Shot &<br/>matriz_confusion_fewshot.png"]
+    end
+
+    classDef ing fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+    classDef unsup fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+    classDef sup fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+    classDef gen fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+
+    class D1,D2,D3,P,M ing;
+    class GL,K,CL,TAB,TXT,BI unsup;
+    class TR,CFG,Split,Prep,GS,Champion,Best,Arch,TE,Preds sup;
+    class LLM_Script,OLL,Eval gen;
+```
+
+---
+
+## 🧩 Componentes del Pipeline
+
+### 1. Data Engineering y Aumento Generativo
+* **Normalización Multifuente (`preparar_csv.py`)**: Unifica datos procedentes de tiendas de aplicaciones y fuentes heterogéneas. Estandariza escalas de satisfacción (1–5 estrellas) a etiquetas normalizadas (`positivo`, `negativo`, `neutro`), sanea inconsistencias de codificación (UTF-8-SIG) y resuelve problemas de campos con delimitadores desalineados.
+* **Oversampling Generativo (`generativo_oversampling.py`)**: Afronta el desbalanceo severo de clases minoritarias sin recurrir únicamente a duplicación o interpolación espacial simple (SMOTE). Emplea un LLM (Gemma 2 vía Ollama) con prompts guiados para generar reseñas sintéticas realistas de clases subrepresentadas.
+
+### 2. Topic Modeling No Supervisado (LDA & Coherencia $C_v$)
+* **Evaluación Empírica de Coherencia (`grafico_lda.py`)**: Ejecuta un barrido de hiperparámetros sobre el número de tópicos ($K \in [2, 8]$) evaluando la métrica matemática de **Coherencia $C_v$** de Gensim de forma independiente para reseñas positivas y negativas. Permite seleccionar empíricamente el valor óptimo de $K$ basándose en la maximización semántica.
+* **Pipeline de Producción e Inteligencia (`clustering_lda.py`)**:
+  * Limpieza lingüística avanzada: filtrado de idioma (`langdetect`), eliminación de stopwords de dominio (palabras vacías funcionales y nombres de marcas) y lematización morfológica exhaustiva (verbos, sustantivos, adjetivos, adverbios con WordNet).
+  * Distribución probabilística de tópicos por reseña.
+  * Tablas de contingencia y analítica cruzada de tópicos frente a:
+    1. **Continente**: Segmentación geográfica (América, Europa, Asia, África, Oceanía).
+    2. **Fuente/Aplicación**: Comparativa directa de fricción WhatsApp vs. Telegram.
+    3. **Evolución Temporal**: Tendencias mensuales para detectar regresiones tras actualizaciones.
+    4. **Género**: Distribución de temas por demografía de usuario.
+
+### 3. Motor de Machine Learning Automatizado (Grid Search & Model Registry)
+* **Entrenamiento y Selección de Modelos (`train.py`)**:
+  * **Estrategia sin Data Leakage**: La imputación (`SimpleImputer`), escalado (`StandardScaler`), discretización (`KBinsDiscretizer`) y vectorización de texto (`CountVectorizer` / `TfidfVectorizer`) se ajustan (*fit*) exclusivamente sobre el fold de entrenamiento tras una partición estratificada.
+  * **Torneo de Clasificadores**:
+    * **K-Nearest Neighbors (KNN)**: Barrido en vecindarios $k$, métricas Minkowski (Manhattan $p=1$, Euclídea $p=2$) y pesos uniformes/inversos.
+    * **Decision Trees & Random Forests**: Control de profundidad máxima (`max_depth`), muestras mínimas por hoja (`min_samples_leaf`) y ensamblado de estimadores (`n_estimators`).
+    * **Naive Bayes Multivariante**: Versiones adaptadas al dominio textual (`MultinomialNB`), discretizadas (`CategoricalNB`) y continuas (`GaussianNB`).
+    * **Logistic Regression**: Regularización penalizada $C$ y optimizadores (`lbfgs`, `saga`).
+  * **Sistema de Registro y Versionado (Model Registry)**: Compara el F1-Score contra el campeón histórico registrado en `proyectos/{project_name}/best_model/`. Si un nuevo modelo supera el récord, archiva el anterior con marca temporal e instala al nuevo campeón junto con todos sus artefactos de preprocesamiento serializados.
+* **Evaluación e Inferencia en Producción (`test.py`)**: Carga el clasificador ganador y deserializa automáticamente el pipeline de transformación para clasificar nuevos lotes de reseñas sin degradación ni desfase de vocabulario.
+
+### 4. Clasificación con LLM Local (Few-Shot Prompting)
+* **Inferencia Generativa (`generativo_fewShot.py`)**:
+  * Utiliza **LangChain** y **Ollama** con el modelo cuantizado `gemma2:2b-text-q4_K_S` en local, garantizando privacidad total de los datos y coste de inferencia cero.
+  * Emplea *Few-Shot In-Context Learning* con ejemplos equilibrados para forzar respuestas estrictas de clasificación.
+  * Genera automáticamente matrices de confusión y reportes de métricas (Accuracy, Precision, Recall, F1) contra las etiquetas reales.
+
+### 5. Business Intelligence & Analítica Estratégica
+* Exportación de `train_con_lda.csv` y `resumen_topicos.txt`, estructurados específicamente para la ingesta y creación de dashboards dinámicos en **Tableau**, facilitando la toma de decisiones ejecutivas sobre el roadmap de producto.
+
+---
+
+## 📂 Estructura del Proyecto
+
+```plaintext
+SAD-WhatsApp/
+├── 📄 configuration.json        # Motor centralizado de experimentación y configuración
+├── 📄 preparar_csv.py           # Unificación, limpieza de datos y generación del CSV maestro
+├── 📄 grafico_lda.py            # Barrido de coherencia C_v para selección óptima de K en LDA
+├── 📄 clustering_lda.py         # Pipeline de Topic Modeling y cruce demográfico/temporal
+├── 📄 train.py                  # Pipeline de entrenamiento, Grid Search y Model Registry
+├── 📄 test.py                   # Script de inferencia y evaluación sobre nuevos datos
+├── 📄 generativo_fewShot.py     # Clasificación zero-cost con LLM local (Ollama + LangChain)
+├── 📄 generativo_oversampling.py# Generación de datos sintéticos con LLM para balanceo
+├── 📄 requirements.txt          # Dependencias y librerías del proyecto
+├── 📄 LICENSE                   # Licencia de código abierto MIT
+└── 📁 proyectos/                # Directorio generado dinámicamente por train.py
+    └── {project_name}/
+        ├── 📁 datos/            # Copias de seguridad de datasets y particiones estratificadas
+        ├── 📁 best_model/       # Modelo campeón actual y artefactos de preprocesado
+        │   ├── bestmodel.sav
+        │   ├── preprocessing_objects.sav
+        │   ├── ultimos_resultados.csv
+        │   └── 📁 predicciones_generadas/
+        └── 📁 archivo_versiones/# Histórico cronológico de experimentos superados
+```
+
+---
+
+## ⚙️ Configuración del Sistema (`configuration.json`)
+
+El sistema implementa el paradigma de **Configuración como Código**, permitiendo modificar pipelines de experimentación sin alterar el código fuente:
+
+```json
+{
+  "project_name": "Auditoria_WhatsApp_Telegram",
+  "algorithm": "todos",
+  "average_strategy": "macro",
+  "preprocessing": {
+    "test_split": 0.2,
+    "target_variable": "sentiment",
+    "drop_features": ["reviewID"],
+    "missing_values": "none",
+    "impute_strategy": "median",
+    "scaling": "standard",
+    "sampling": "none",
+    "min_samples": 4,
+    "text_processing": {
+      "enabled": true,
+      "columns": ["content"],
+      "processing_type": "stem",
+      "method": "bow",
+      "language": "english",
+      "ngram_range": [1, 2],
+      "stopwords_domain": ["whatsapp", "telegram", "app"],
+      "negation_words": ["not", "no", "never"]
+    }
+  },
+  "hyperparameters": {
+    "knn": { "k_min": 3, "k_max": 7, "p_min": 1, "p_max": 2, "weights": ["uniform", "distance"] },
+    "trees": { "max_depth": [10, 20], "min_samples_leaf": [1, 2] },
+    "random_forest": { "n_estimators": [100, 200], "max_depth": [10, 20] },
+    "naive_bayes": { "n_bins": [5, 10], "alphas": [0.01, 0.1], "min_categories": null },
+    "logistic_regression": { "C": [0.1, 1.0], "solver": ["lbfgs", "saga"] }
+  }
+}
+```
+
+### Parámetros Clave
+| Bloque | Parámetro | Descripción | Valores Soportados |
+| :--- | :--- | :--- | :--- |
+| **Control** | `algorithm` | Algoritmo(s) a evaluar en el torneo | `"knn"`, `"tree"`, `"rf"`, `"nb"`, `"lr"`, `"todos"` |
+| **Control** | `average_strategy` | Promedio métrico para clases multietiqueta | `"macro"`, `"weighted"`, `"micro"`, `"auto"` |
+| **Preproceso** | `sampling` | Técnica de balanceo de clases en Train | `"none"`, `"undersampling"`, `"smote"`, `"adasyn"` |
+| **Texto** | `processing_type` | Normalización morfológica | `"stem"` (Porter), `"lemmatize"` (WordNet POS) |
+| **Texto** | `method` | Vectorización espacial | `"bow"` (CountVectorizer), `"tfidf"` (TfidfVectorizer) |
+| **Texto** | `negation_words` | Preservación de términos clave de polaridad | Lista de cadenas (ej. `["not", "never"]`) |
+
+---
+
+## 🚀 Guía de Instalación y Ejecución
+
+### 1. Requisitos Previos
+* **Python**: Versión 3.8 o superior (recomendado 3.10 / 3.11).
+* **Ollama**: Descargar e instalar desde [ollama.com](https://ollama.com/).
+* **Modelo LLM local**:
+  ```bash
+  ollama pull gemma2:2b-text-q4_K_S
+  ```
+
+### 2. Configuración del Entorno Virtual
+```bash
+# Clonar el repositorio
+git clone https://github.com/aimarlarriba/SAD-WhatsApp.git
+cd SAD-WhatsApp
+
+# Crear y activar entorno virtual
+python -m venv .venv
+
+# En Windows:
+.venv\Scripts\activate
+# En Linux/macOS:
+# source .venv/bin/activate
+
+# Instalar dependencias
+pip install -r requirements.txt
+```
+
+### 3. Pipeline de Ejecución Paso a Paso
+
+#### Paso A: Preparar y unificar el dataset maestro
+```bash
+python preparar_csv.py
+```
+*Genera `train_opiniones_balanceado.csv` con los datos limpios y etiquetados.*
+
+#### Paso B: Descubrimiento de Tópicos No Supervisado (LDA)
+```bash
+# 1. Graficar y evaluar la coherencia semántica C_v para encontrar K óptimo
+python grafico_lda.py
+
+# 2. Ejecutar el clustering de producción y generar reportes para Tableau
+python clustering_lda.py
+```
+*Genera `train_con_lda.csv` y `resumen_topicos.txt` con la distribución por continente, plataforma y género.*
+
+#### Paso C: Entrenamiento y Torneo de Modelos de Machine Learning
+```bash
+python train.py train_opiniones_balanceado.csv configuration.json
+```
+*Realiza el barrido de hiperparámetros, guarda el modelo campeón en `proyectos/{project_name}/best_model/` y versiona los resultados.*
+
+#### Paso D: Inferencia sobre Nuevas Opiniones
+```bash
+python test.py Auditoria_WhatsApp_Telegram best_model ruta_a_nuevas_opiniones.csv
+```
+*Aplica automáticamente todas las transformaciones ajustadas y genera predicciones con probabilidades en CSV.*
+
+#### Paso E: Benchmark con LLM Local (Few-Shot Prompting)
+```bash
+python generativo_fewShot.py
+```
+*Evalúa el rendimiento de Gemma 2 en local y genera `matriz_confusion_fewshot.png` y `predicciones_sentiment.csv`.*
+
+---
+
+## 📊 Benchmark de Modelos y Hallazgos
+
+### Hallazgos de Inteligencia Competitiva (Tableau Insights)
+1. **WhatsApp (Focos de Fricción)**:
+   * Alta concentración de quejas en temas de **límites de compresión multimedia** y **consumo excesivo de almacenamiento local**.
+   * Sensibilidad negativa marcada durante cambios en políticas de privacidad o caídas de sincronización multidispositivo.
+2. **Telegram (Ventajas Competitivas y Puntos Débiles)**:
+   * Percepción altamente positiva en **envío de archivos pesados**, **gestión de canales/grupos** y **almacenamiento en la nube**.
+   * Quejas focalizadas en presencia de **spam no moderado** y menor penetración en redes de contactos personales en ciertas regiones geográficas.
+
+### Resumen Comparativo de Enfoques
+| Enfoque | Modelo / Algoritmo | Ventajas | Limitaciones | Caso de Uso Óptimo |
+| :--- | :--- | :--- | :--- | :--- |
+| **No Supervisado** | LDA ($K=8$ pos, $K=2$ neg) | Descubre problemas desconocidos sin etiquetar; interpretable | Requiere ajuste manual de $K$ y stopwords | Auditoría cualitativa y BI en Tableau |
+| **Supervisado Clásico** | Random Forest / Regresión Logística | Inferencia ultrarrápida (<5ms); bajo consumo de RAM | Depende de la calidad del vectorizador léxico | Clasificación en producción a gran escala |
+| **Generativo Local** | Gemma 2 (2B) Few-Shot | Excelente comprensión de contexto, sarcasmo y jerga | Mayor latencia por muestra (~100-200ms) | Auditoría de muestras complejas y desempate |
+
+---
+
+## 🛡️ Buenas Prácticas de Ingeniería Implementadas
+
+* **Prevención Rigurosa de Data Leakage**: Ninguna estadística del conjunto de validación/test interviene en la imputación, normalización ni en el vocabulario del vectorizador.
+* **Control de Reproducibilidad**: Semillas fijadas (`random_state=42`, `DetectorFactory.seed=0`, `PYTHONHASHSEED=0`) a lo largo de todo el pipeline estocástico.
+* **Model Registry Champion-Challenger**: Automatización del reemplazo de modelos basada en mejoras estrictas del F1-Score Macro.
+* **Zero-Cost Local AI**: Integración de LLMs sin dependencias de APIs propietarias de pago ni fuga de datos a la nube.
+
+---
+
+## 👥 Equipo y Contexto Académico
+
+Este proyecto ha sido desarrollado como trabajo de investigación aplicada para la asignatura de **Sistemas de Ayuda a la Decisión (SAD)** en la **Universidad del País Vasco (UPV/EHU)**.
+
 * **Urko Horas**
 * **Lou Marine Gómez**
 * **Aimar Larriba**
@@ -15,260 +319,6 @@ El proyecto abarca desde la limpieza de datos en crudo hasta el modelado de tóp
 
 ---
 
-## Estructura del Proyecto
-El repositorio está estructurado para reflejar el ciclo de vida de los datos:
+## 📄 Licencia
 
-### 1. Preprocesamiento y Preparación de Datos  
-*   **`preparar_csv.py`**: Automatiza la unificación y normalización de datasets (fuentes reales y sintéticas) en un CSV maestro para el entrenamiento de modelos de IA. El código estandariza las notas de cada opinión en etiquetas (positivo, negativo y neutro), limpia inconsistencias en el texto y homogeniza estructuras dispares, garantizando un corpus de datos limpio y listo para tareas de NLP.
-  
-### 2. Aprendizaje No Supervisado (Topic Modeling)
-*   **`grafico_lda.py`**: Entorno de experimentación y evaluación. Itera el modelo generativo LDA probando múltiples configuraciones de tópicos (K). Utiliza la métrica matemática de **Coherencia (C_V)** para determinar empíricamente el número óptimo de clusters (diferenciando entre reseñas positivas y negativas) antes de pasar a producción.
-*   **`clustering_lda.py`**: Pipeline de producción e Inteligencia de Negocio. Implementa Latent Dirichlet Allocation (LDA) con los hiperparámetros óptimos extraídos de la gráfica. Aísla las quejas funcionales eliminando ruido emocional, etiqueta las reseñas, y cruza probabilísticamente los tópicos con metadatos de los usuarios (Continente, Plataforma, Género y Mes/Año). Los resultados alimentan directamente la toma de decisiones en Tableau. 
-### 3. Machine Learning Tradicional (Supervisado)
-* **`train.py`**: Script que realiza la carga de datos, preproceso dinámico, partición estratificada, barrido de parámetros (Grid Search) y selección del mejor modelo.
-* **`test.py`**: Programa para cargar el modelo ganador y clasificar nuevas instancias, manteniendo la consistencia del preproceso.
-* **`configuration.json`**: Fichero centralizado de configuración (estrategias de preproceso y rangos de hiperparámetros).
-
-### 4. Inteligencia Artificial Generativa y Aumentada  
-*   **`generativo_fewShot.py`**: Implementación de clasificación generativa utilizando el LLM Gemma 2 (vía Ollama y LangChain). Utiliza técnicas de *Few-Shot Prompting* sobre el texto crudo para clasificar sentimientos sin necesidad de reentrenamiento, actuando como un evaluador de alto nivel.  
-*   **`generativo_oversampling.py`**: Script experimental que utiliza IA generativa para la creación de datos sintéticos, buscando balancear clases minoritarias en el dataset sin recurrir a técnicas de duplicación clásica.  
-
-### 5. Estructura de las carpetas
-* **`proyectos/{project_name}/`**: 
-  * **`datos/`**: Copias de seguridad de los datasets utilizados y tests automáticos.
-  * **`best_model/`**: Contiene `bestmodel.sav`, `preprocessing_objects.sav`, `configuracion_usada.json`, `test.csv` (si se ha indicado su creación) y el informe de `ultimos_resultados.csv`.
-  * **`archivo_versiones/`**: Histórico de modelos previos archivados al encontrar una mejora en el F-score.
-  * **`predicciones_generadas/`**: CSVs resultantes de las ejecuciones de `test.py`.
-  
-```
-      .
-      ├── train.py                # Script de entrenamiento y optimización
-      ├── test.py                 # Script de inferencia y evaluación
-      ├── configuration.json      # Configuración de experimentos
-      └── proyectos/
-          └── {project_name}/     # Carpeta creada automáticamente
-              ├── datos/          # Copias de seguridad y tests estratificados
-              │   ├── entrenamiento_dataset.csv
-              │   └── test_automatico_Iris.csv
-              ├── best_model/     # El modelo con mejor F1-score hasta la fecha
-              │   ├── bestmodel.sav
-              │   ├── preprocessing_objects.sav
-              │   ├── ultimos_resultados.csv
-              │   └── predicciones_generadas/
-              │       └── pred_KNN_F1_0.98_dataset.csv
-              └── archivo_versiones/ # Historial de modelos
-                  └── v_F1_0.9200_2026-03-20_10-30/
-                      ├── bestmodel.sav
-                      └── preprocessing_objects.sav
-```
-
----
-
-## Estructura de `configuration.json`
-El archivo de configuración, el cual se muestra a continuación, actúa como el motor del experimento, permitiendo modificar el comportamiento de los scripts sin necesidad de editar el código fuente. 
-```json
-{  
-  "project_name": "Nombre",  
-  "algorithm": "todos",  
-  "average_strategy": "macro",  
-  "preprocessing": {  
-    "test_split": 0.2,  
-    "target_variable": "Target",  
-    "drop_features": [],  
-    "missing_values": "none",  
-    "impute_strategy": "median",  
-    "scaling": "none",  
-    "sampling": "none",  
-    "min_samples": 4,  
-    "text_processing": {  
-      "enabled": true,  
-      "columns": ["content"],  
-      "processing_type": "stem",  
-      "method": "bow",  
-      "language": "english",  
-      "ngram_range": [1, 2],  
-      "stopwords_domain": [],  
-      "negation_words": []  
-    }  
-  },  
-  "hyperparameters": {  
-    "knn": {  
-      "k_min": 3,  
-      "k_max": 11,  
-      "p_min": 1,  
-      "p_max": 2,  
-      "weights": ["uniform", "distance"]  
-    },  
-    "trees": {  
-      "max_depth": [10, 20, 30, null],  
-      "min_samples_leaf": [1, 2, 5]  
-    },  
-    "random_forest": {  
-        "n_estimators": [100, 200, 300],  
-        "max_depth": [10, 20, null]  
-    },  
-    "naive_bayes": {  
-      "n_bins": [5, 10, 15],  
-      "alphas": [0.01, 0.1, 0.5, 1.0],  
-      "min_categories": null  
-  },  
-    "logistic_regression": {  
-      "C": [10],  
-      "solver": ["lbfgs", "saga"]  
-    }  
-  }  
-}
-```
-Este se divide en tres bloques principales:
-
-#### 1. Control de Ejecución
-* **`project_name`**: Determina el nombre del proyecto.
-* **`algorithm`**: Permite aislar un experimento o ejecutar la comparativa completa entre algoritmos para seleccionar el mejor modelo global.
-    * **Valores**: `"knn"`, `"tree"`, `"rf"`, `"nb"`, `"lr"` o `"todos"`.
-* **`average_strategy`**: Determina el tipo de F-Score a usar.
-    * **Valores**: `"micro"`, `"macro"`, `"weighted"`, `"binary"` o `"auto"`.
-
-#### 2. Preprocesado (`preprocessing`)
-Configura las transformaciones que aseguran la calidad de los datos antes del entrenamiento:
-
-* **`test_split`**: Extrae un porcentaje de la muestra inicial para generar un set de evaluación.
-    * **Valores**: Float entre 0 y 1.
-* **`target_variable`**: Nombre del atributo a predecir. Debe coincidir exactamente con el nombre de la columna objetivo en el archivo `.csv`.
-    * **Valores**: String.
-* **`drop_features`**: Nombres de las columnas irrelevantes o identificadores únicos a eliminar para evitar el sobreajuste. Deben coincidir exactamente con el nombre de la columna en el archivo `.csv`.
-    * **Valores**: Lista de String `[]`.
-* **`missing_values`**: Activa o desactiva la gestión de datos faltantes en el dataset
-    * **Valores**: `"impute"` o `"none"`.
-* **`impute_strategy`**: Define el criterio estadístico para rellenar los valores nulos.
-    * **Valores**: `"mean"`, `"median"` o `"most_frequent"`.
-* **`scaling`**: Activa o desactiva el escalado $Z$-score, fundamental para algoritmos basados en distancia como KNN.
-    * **Valores**: `"standard"` o `"none"`.
-* **`sampling`**: Define el método de balanceo de clases en el conjunto de entrenamiento para evitar sesgos hacia la clase mayoritaria.
-    * **Valores**: `"undersampling"`, `"smote"`, `"adasyn"` o `"none"`.
-* **`min_samples`**: Define el número mínimo de apariciones que debe tener una clase. Útil para datasets sin balanceo.
-  * **Valores**: Integer
-* **`text_processing`**: Diccionario que gestiona la vectorización y limpieza del lenguaje natural.
-	* **`enabled`**: Activa/desactiva el procesamiento de texto.
-		* **Valores**: `true` o `false`.
-    * **`columns`**: Lista de columnas que contienen el texto a procesar.
-	    * **Valores**: Lista de String `[]`.
-    * **`processing_type`**: Técnica de normalización.
-	    * **Valores**: `"stem"` o `"lemmatize"`.
-    * **`method`**: Técnica de vectorización.
-	    * **Valores**: `"bow"` o `"tfidf"`.
-    * **`ngram_range`**: Define el rango de n-gramas (unigramas, bigramas) para capturar contexto.
-	   * **Valores**: Lista de Integer `[]`.
-    * **`stopwords_domain`**: Lista de palabras personalizadas a ignorar (nombres de la app, verbos comunes sin carga semántica).
-	     * **Valores**: Lista de String `[]`.
-    * **`negation_words`**: Palabras que deben conservarse para no perder el sentido negativo de las frases (ej. "no", "not").
-	     * **Valores**: Lista de String `[]`.
-
-#### 3. Hiperparámetros (`hyperparameters`)
-Define los rangos para el barrido automático (Grid Search) y la optimización de los modelos:
-
-* **`knn`**:
-    * **`k_min` / `k_max`**: Define el rango de vecinos $k$ para el barrido.
-        * **Valores**: Integer.
-    * **`p_min` / `p_max`**: Define la métrica de distancia de Minkowski ($p=1$: Manhattan, $p=2$: Euclídea).
-        * **Valores**: Integer.
-    * **`weights`**: Determina la influencia de los vecinos según su cercanía. Se puede indicar sólo un método o ambos.
-        * **Valores**: Lista de String `["uniform", "distance"]`. 
-* **`trees`**: 
-    * **`max_depth`**: Controla la profundidad máxima del árbol para evitar el *overfitting*. Se deben indicar los valores a probar, no el rango.
-        * **Valores**: Lista de Integer `[]`. 
-    * **`min_samples_leaf`**: Define el número mínimo de muestras requerido en un nodo terminal. Se deben indicar los valores a probar, no el rango.
-        * **Valores**: Lista de Integer `[]`.
-* **`random_forest`**:
-    * **`n_estimators`**: Define el número de estimadores (árboles) que componen el Random Forest. Se deben indicar los valores a probar, no el rango.
-        * **Valores**: Lista de Integer `[]`. 
-    * **`max_depth`**: Controla la profundidad máxima del árbol para evitar el *overfitting*. Se deben indicar los valores a probar, no el rango.
-        * **Valores**: Lista de Integer `[]`. 
-* **`naive_bayes`**:
-    * **`n_bins`**: Determina el número de intervalos para la discretización de variables continuas al usar la versión CategoricalNB. Se deben indicar los valores a probar.
-        * **Valores**: Lista de Integer `[]`.
-    * **`alphas`**: Define los valores del parámetro de suavizado de Laplace (Laplace smoothing) a probar en el barrido para evitar probabilidades nulas.
-        * **Valores**: Lista de Float `[]`.
-    * **`min_categories`**: Número mínimo de categorías esperadas por atributo. Si se desconoce, se deja vacío para que el algoritmo lo calcule automáticamente.
-        * **Valores**: Integer o `null`.
-* **`logistic_regression`**:
-    * **`C`**: Define el parámetro de regularización (menor valor, mayor regularización).
-        * **Valores**: Lista de Integer `[]`. 
-    * **`solver`**:  Determina el algoritmo de optimización.
-        * **Valores**: Lista de String `["lbfgs", "saga"]`. 
-
----
-
-## Requisitos
-El proyecto está desarrollado en Python 3.11. Para replicar el entorno de ejecución de forma sencilla, se recomienda el uso de un entorno virtual:
-```bash
-# Instalación de dependencias
-pip install -r requirements.txt
-```
-***Nota:** _Se requiere tener `Ollama` instalado y el modelo `gemma2:2b-text-q4_K_S` descargado localmente para el módulo generativo_*.
-
----
-
-## Modo de Empleo
-
-### 1. Preparación de los datos
-El script unifica archivos dispersos, limpia el texto y genera el archivo maestro necesario para el resto del pipeline. 
-```bash
-python preparar_csv.py
-```
-
-### 2. Entrenamiento y Barrido
-El script de entrenamiento requiere dos argumentos por línea de comandos: el archivo de datos y el fichero de configuración.
-```bash
-python train.py TrainDev.csv configuration.json
-```
-El script comparará el F-score del mejor modelo actual en `best_model/`. Si el nuevo entrenamiento lo supera, se sustituirán los  datos por los del nuevo modelo.
-
-***Nota:** El archivo `.csv` se puede indicar mediante su ruta directa o, si ya está `datos/` del proyecto correspondiente creado y se encuentra en esta, únicamente mediante su nombre*.
-
-### 3. Clasificación de Instancias
-Para predecir la clase de nuevas muestras, se utiliza el modelo guardado en el proyecto y carpeta correspondiente. Se debe indicar el nombre del proyecto, el nombre de la carpeta que contiene el modelo a probar y, si no ha sido generado de forma automática, el archivo de datos (cargado con datos nuevos) . 
-```bash
-python test.py NombreDelProyecto NombreCarpetaModelo (Test.csv)
-```
-***Nota:** El script de test aplica automáticamente el preprocesado (escalado, imputación) utilizando los parámetros aprendidos durante el entrenamiento, pero nunca aplica balanceo a los datos de test.*
-
-***Nota:** El archivo `.csv` se puede indicar mediante su ruta directa o, si ha sido generado de forma automática y ya está en la carpeta del modelo a probar, únicamente mediante el nombre del proyecto y el modelo específico*.
-
-### 4. Ejecución del Pipeline Generativo
-Para ejecutar la clasificación basada en LLM (Gemma 2) mediante _Few-Shot Prompting_. 
-```bash
-python generativo_fewShot.py
-```
-***Nota:** Asegúrate de tener el servicio de `Ollama` corriendo en segundo plano.*.
-
-### 5. Análisis de Tópicos
-Para descubrir de qué hablan los usuarios y visualizar los resultados:
-
-```bash
-# Evaluar la coherencia semántica para decidir el número óptimo de tópicos (K)
-python grafico_lda.p
-# Aplicar los hiperparámetros óptimos y generar el informe de Inteligencia de Negocio
-python clustering_lda.py 
-
-```
-
----
-
-## Librerias Empleadas
-Este proyecto utiliza distintas librerias, todas ellas incluidas en el archivo `requirements.txt`.
-
----
-
-## Licencia
-Este proyecto está bajo la Licencia MIT. Consulta el archivo [LICENSE](LICENSE) para más detalles.
-
----
-
-## Declaración de Asistencia de IA
-Se ha hecho uso de herramientas de IA Generativa (Gemini) como asistente para:
-
-* **Depuración de código LLM**: Resolución de problemas de formato y métricas en el pipeline de Inferencia Generativa (*Few-Shot Prompting* con LangChain y Ollama).  
-* **Enfoque analítico**: Asistencia en la extracción de conclusiones estratégicas (benchmarking de competidores) para la narrativa visual de los dashboards de Tableau.  
-* **Documentación**: Redacción, estructuración y formato Markdown del presente archivo README para reflejar el estado real de la arquitectura.
-
-***Nota:** Todo el código ha sido validado y testeado manualmente para asegurar su integridad y cumplimiento con los objetivos de la asignatura.*
+Este proyecto está bajo la Licencia **MIT**. Consulta el archivo [LICENSE](LICENSE) para más detalles.

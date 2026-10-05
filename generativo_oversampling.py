@@ -44,14 +44,14 @@ def main():
     for i in range(int(cantidad_a_generar)):
         respuesta = chain.invoke({}).strip()
 
-        # Limpieza con el machetazo
+        # Limpieza y normalización de la salida del LLM
         respuesta_limpia = respuesta.split('"')[0].split('\n')[0].strip()
 
-        print(f"Inventada {i + 1}: {respuesta_limpia}")
+        print(f"Generada {i + 1}: {respuesta_limpia}")
 
         nuevas_resenas.append({
             'content': respuesta_limpia,
-            'sentiment': etiqueta,  # Usamos la etiqueta exacta que necesita Aimar
+            'sentiment': etiqueta,  # Etiqueta normalizada para el pipeline
             'source': 'Generado_LLM'
         })
 

@@ -421,15 +421,12 @@ def train():
     text_cfg = conf_pre.get('text_processing', {})
     text_columns = text_cfg.get('columns', [])
     vectorizador = None
+    idioma = text_cfg.get('language', 'spanish')
+    processing_type = text_cfg.get('processing_type', 'lemmatize')
 
     if text_cfg.get('enabled', False) and text_columns:
         print(f"[*] Procesando y limpiando columnas de texto: {text_columns}")
         print(f"[*] Método de procesado de texto utilizado: {text_cfg.get('method')}")
-
-        # Obtener idioma del JSON (por defecto 'english')
-        idioma = text_cfg.get('language', 'spanish')
-
-        processing_type = text_cfg.get('processing_type', 'lemmatize')
 
         # Leer las listas del JSON (si no existen, devuelve lista vacía)
         p_neg = text_cfg.get('negation_words', [])
@@ -608,6 +605,7 @@ def train():
         'average_strategy': avg, 'combinacion_exacta': mejor_comb_global,
         'fecha': timestamp, 'project_name': proyecto,
         'vectorizador_texto': vectorizador, 'text_columns_original': text_columns,
+        'processing_type': processing_type,
         'language': idioma, 'drop_features': conf_pre.get('drop_features', []),
         'negation_words': text_cfg.get('negation_words', []),
         'stopwords_domain': text_cfg.get('stopwords_domain', [])

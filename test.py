@@ -115,7 +115,7 @@ def test():
     df = pd.read_csv(ruta_final_datos)
     vectorizador = pre_obj.get('vectorizador_texto')
     text_columns = pre_obj.get('text_columns_original', [])
-    processing_type = pre_obj.get('processing_type', [])
+    processing_type = pre_obj.get('processing_type', 'stem')
 
     # Si hay un vectorizador guardado, procesamos el texto automáticamente
     if vectorizador is not None and len(text_columns) > 0:
@@ -170,7 +170,7 @@ def test():
     alg = pre_obj['algoritmo']
 
     # Si ganó uno de estos y encima había escalador guardado...
-    if alg in ["KNN", "Tree", "Random Forest"] and pre_obj['scaler'] is not None:
+    if alg in ["KNN", "Tree", "Random Forest", "Logistic Regression"] and pre_obj['scaler'] is not None:
         X_p = pre_obj['scaler'].transform(X_p)  # ... los escala con el Z-score del train.
 
     # Si ganó Naive Bayes y guardó un discretizador (cajas)...

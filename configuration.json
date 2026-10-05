@@ -1,11 +1,11 @@
 {
-  "project_name": "Nombre",
+  "project_name": "WhatsApp_Telegram_Intelligence",
   "algorithm": "todos",
   "average_strategy": "macro",
   "preprocessing": {
     "test_split": 0.2,
-    "target_variable": "target",
-    "drop_features": [],
+    "target_variable": "sentiment",
+    "drop_features": ["reviewID"],
     "missing_values": "none",
     "impute_strategy": "median",
     "scaling": "none",
@@ -18,8 +18,8 @@
       "method": "bow",
       "language": "english",
       "ngram_range": [1, 2],
-      "stopwords_domain": [],
-      "negation_words": []
+      "stopwords_domain": ["whatsapp", "telegram", "app"],
+      "negation_words": ["not", "no", "never"]
     }
   },
   "hyperparameters": {

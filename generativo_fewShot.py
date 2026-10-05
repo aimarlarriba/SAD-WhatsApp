@@ -29,15 +29,15 @@ prompt = PromptTemplate.from_template(template)
 model = OllamaLLM(model=args.model, temperature=0.0, num_predict=5, top_k=10, top_p=0.5)
 chain = prompt | model
 
-print(f"[*] Cargando reseñas de train_opiniones.csv (Modelo: {args.model})...")
+print(f"[*] Cargando reseñas de train_opiniones_balanceado.csv (Modelo: {args.model})...")
 try:
-    # He quitado la mención a limparCSV.py porque en tu repo se llama preparar_csv.py
     df = pd.read_csv('train_opiniones_balanceado.csv')
 except FileNotFoundError:
-    print("[!] Error: No se encuentra 'train_opiniones.csv'. Ejecuta tu script de preparación de datos primero.")
+    print("[!] Error: No se encuentra 'train_opiniones_balanceado.csv'. Ejecuta tu script de preparación de datos primero.")
     exit(1)
 
-df_muestra = df.sample(50, random_state=42)
+n_muestras = min(len(df), 50)
+df_muestra = df.sample(n_muestras, random_state=42)
 resultados = []
 
 print("[*] Iniciando predicciones...\n")
