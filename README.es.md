@@ -1,4 +1,4 @@
-[🇬🇧 English](README.md) | [🇪🇸 Español](README.es.md)
+🌐 **Language / Idioma:** [English](README.md) • [Español](README.es.md)
 
 # 📱 WhatsApp vs. Telegram: Customer Intelligence & NLP Pipeline
 
